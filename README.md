@@ -1,5 +1,5 @@
 # opendatadc-starterkit
-This repo is a collection of samples designed to demonstrate how developers can use the json-based APIs found at [Open Data DC](https://working-dcgis.opendata.arcgis.com) to build data-centric applications. It is managed by DC Government staff members of Chief Data Officer's team. 
+This repo is a collection of samples designed to demonstrate how developers can use the json-based APIs found at [Open Data DC](http://opendata.dc.gov) to build data-centric applications. It is managed by DC Government staff members of Chief Data Officer's team. 
 
 About the Samples
 ----------
@@ -7,7 +7,7 @@ The samples...
 - require only basic web development skills.
 - are easily hacked by simply changing data sources, titles, and making other minor configuration changes.
 - have an understated but pleasing look-and-feel.
-- show how you can consume data on [Open Data DC](https://working-dcgis.opendata.arcgis.com) in lots of clients: esri, D3, mapbox, leaflet, google maps
+- show how you can consume data on [Open Data DC](http://opendata.dc.gov) in lots of clients: esri, D3, mapbox, leaflet, google maps
 
 Table of Contents
 ----------

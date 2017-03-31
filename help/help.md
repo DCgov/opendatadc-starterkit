@@ -54,7 +54,7 @@ See something missing in the above technologies? Suggest it [by creating an issu
 
 All data is available for bulk download as csv. Unfortunately, there is not easy way to chunk the csv files for easier download. To get the direct link to the CSV, just copy the URL for the geojson and replace .geojson with .csv, e.g.
 
-[http://opendata.dc.gov...80ecec9_2.**geojson**](https://opendata.dc.gov/datasets/f2e1c2ef9eb44f2899f4a310a80ecec9_2.geojson) >> [http://opendata.dc.gov...80ecec9_2.**csv**](https://opendata.dc.gov/datasets/f2e1c2ef9eb44f2899f4a310a80ecec9_2.csv)
+[http://opendata.dc.gov...80ecec9_2.**geojson**](https://opendata.arcgis.com/datasets/f2e1c2ef9eb44f2899f4a310a80ecec9_2.geojson) >> [http://opendata.dc.gov...80ecec9_2.**csv**](https://opendata.arcgis.com/datasets/f2e1c2ef9eb44f2899f4a310a80ecec9_2.csv)
 
 <br>
 

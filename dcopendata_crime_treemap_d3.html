@@ -1,0 +1,635 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Description: This sample demonstrates how a dataset from DC Open Data can be visualized in a d3 Treemap chart-->
+    <!-- Attribution:
+    Mike Bostock, Zoomable Treemaps, Url:https://bost.ocks.org/mike/treemap/;
+    Ganeshv, Zoomable Treemap Template, https://bl.ocks.org/ganeshv/6a8e9ada3ab7f2d88022;
+    D3: Zoomable Treemap Explained, Url: https://secure.polisci.ohio-state.edu/faq/d3/zoomabletreemap_code.php;
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/
+    -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Crime Incidents Treemap @ Washington, DC</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: "open_sanssemi", sans-serif;
+    }
+    
+    #chart {
+        position: absolute;
+        background: #fff;
+    }
+    
+    .title {
+        font-weight: bold;
+        font-size: 24px;
+        text-align: center;
+        margin-top: 6px;
+        margin-bottom: 6px;
+    }
+    
+    text {
+        pointer-events: none;
+    }
+    
+    .ctext {
+        font-size: 11px;
+    }
+ 
+    .grandparent text {
+        font-weight: bold;
+        font-size: 24px;
+    }
+    
+    /* pointer shows its clickable */
+    rect {
+        fill: none;
+        stroke: #000;
+        cursor: pointer;
+    }
+    
+    rect.parent,
+    .grandparent rect {
+        stroke-width: 3px;
+    }
+    
+    rect.parent {
+        pointer-events: none;
+    }
+    
+    .grandparent rect {
+        fill: #fbfbfb;
+    }
+    
+    .grandparent:hover rect {
+        fill: #dcdcdc;
+    }
+    
+    .children rect.parent,
+    .grandparent rect {
+        cursor: pointer;
+    }
+    
+    /* the parent rect mutes the colorful children */
+    .children rect.parent {
+        fill: #bbb;
+        fill-opacity: 0.3;
+    }
+    
+    .children:hover rect.child {
+        fill: #bbb;
+    }
+    
+    .ptext tspan:first-of-type {
+        font-weight: bold;
+    }        
+
+    /*styling for title bar and about pop over */
+
+a   {
+        color: #fff;
+        font-family: 'open_sansregular', sans-serif;
+    }
+    
+    #title {
+        color: #fff;
+        font-family: "open_sanssemibold", sans-serif;
+        font-size: 24px;
+        line-height: 30px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .header {
+        position: relative;
+        padding: 15px 30px 25px 30px;
+        margin: auto;
+        z-index: 500;
+        background-color: rgb(12, 12, 12);
+        box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+        opacity: 0.8;
+    }
+    
+    #about {
+        padding: 10px 20px 20px 20px;
+        z-index: 4000;
+        position: absolute;
+        background-color: #505050;
+        color: white;
+        width: 700px;
+        left: 50%;
+        margin-left: -300px;
+        height: calc(100% - 200px);
+        top: 100px;
+        display: none;
+        overflow: hidden;
+        opacity: 0.95;
+    }
+    
+    #dismiss-about {
+        cursor: pointer;
+        font-size: 30px;
+        float: right;
+        margin-bottom: 10px;
+    }
+    
+    #inner {
+        width: 100%;
+        height: calc(100% - 60px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    </style>
+</head>
+
+<body style="margin:0;">
+    <div class='header'>
+        <div id="title">Crime Incidents Treemap @ Washington, DC</div>
+        <div style="float: right;">
+            <a style="color:rgb(206,206,206);font-size:14px; margin-right: 10px; " href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">This on Github</a>
+            <a style="color:rgb(206,206,206);font-size:14px; " href="javascript:void(0)" onclick="openAbout()">About This Sample</a>
+        </div>
+    </div>
+    <div id="chart"></div>
+    <div id="about">
+        <a id="dismiss-about" onclick="closeAbout()">×</a>
+        <div id="inner">
+            <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">
+                About this map
+            </p>
+            <p style="font-size: 1.2em;">
+                This sample demonstrates how a dataset from DC Open Data can be visualized in a D3 dynamic Treemap chart.
+                Basically, CSV download > nest into hierarchy > display in treemap
+            </p>
+            <p>
+                <strong>Instructions</strong>
+                <br /> Each rectangle is sized relative to the quantity it represents. At any given time, the treemap
+                shows two levels of hierarchical data: a parent rectangle denoted by thicker lines, and the colored-in children.
+                Click or tap any rectangle to "zoom in" - in other words, make the child the parent and display the 
+                next level. 
+            </p>
+            <p>
+                <strong>Built with...</strong>
+                <br /> <a href="https://d3js.org/">D3</a>, <a href="https://jquery.com/">jQuery</a>
+            </p>
+            <p>
+                <strong>Download Crime Incidents - 2015 data in CSV</strong>
+                <br /><a href="https://opendata.arcgis.com/datasets/35034fcb3b36499c84c94c069ab1a966_27.csv" target="_blank">https://opendata.dc.gov/datasets/35034fcb3b36499c84c94c069ab1a966_27.csv</a>
+            </p>
+            <p>
+                <strong>View Crime Incidents - 2015 data on DC Open Data</strong>
+                <br /><a href="https://working-dcgis.opendata.arcgis.com/datasets/crime-incidents-2015?geometry=-77.533%2C38.81%2C-76.49%2C38.997" target="_blank">https://opendata.dc.gov/datasets/35034fcb3b36499c84c94c069ab1a966_27</a>
+            </p>
+            <p>
+                <strong>DC Open Data</strong>
+                <br /><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a>
+            </p>
+            <p>
+                <strong>DC Open Data Samples</strong>
+                <br /><a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">https://github.com/DCgov/opendatadc-starterkit</a>
+            </p>
+            <div id="logos" style="text-align: center;">
+                <img src="images\WeAreWashintgonDCFinalLogo-Website.png" title="We are DC logo">
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        //use the downloadable CSV available from Open Data DC (this one is for 2015)
+        var crimeDataURL = "https://opendata.arcgis.com/datasets/35034fcb3b36499c84c94c069ab1a966_27.csv";
+
+        //initialize variables
+        var transitioning = false;
+
+        //this object holds some basic settings for the app
+        //you'd want to tweak these if adapting this sample to something else
+        var options = {
+            margin: {
+                top: 70, // height of grandparent bar
+                right: 0,
+                bottom: 0,
+                left: 0
+            },
+            rootname: "2015 Incidents",
+            format: ",d",
+            title: "2015 Incidents",
+            treeLevels: ["SHIFT", "OFFENSE", "METHOD"]
+        };
+
+        /* About the treeLevels ^^:
+
+        - list of fields from the table that define the tree hierarchy
+        - find these by browsing the dataset table in opendata
+        - these are case sensitive to the data source, look closely!
+        - designed for 3 levels
+        */
+
+        //fit treemap to window, and resize when window changes
+        function resetSize() {
+            options.width = $(window).width();
+            options.height = $(window).height() - 70;
+
+            $("#chart").css("width", options.width);
+            $("#chart").css("height", options.height);
+        }
+
+        $(document).ready(function () {
+            resetSize();
+            crimeTreeMap();
+        });
+
+        $(window).resize(function () {
+            resetSize();
+            crimeTreeMap();
+        });
+
+        //get level of tree based on order of parent in array
+        //relies on key convention {FIELDNAME}:{VALUE}
+        //*remember: FIELDNAMES >> treeLevels, both are case sensitive
+        function getTreeLevelIndex(key) {
+            var treeLevel = key.split(":")[0];
+            return options.treeLevels.indexOf(treeLevel);
+        }
+
+        // from medium.freecodecamp.com "three ways to title case..." (highly recommend!)
+        function titleCase(str) {
+            return str.toLowerCase().split(' ').map(function (word) {
+                return (word.charAt(0).toUpperCase() + word.slice(1));
+            }).join(' ');
+        }
+
+        // recursively populate nodes down to leaf with the nested data
+        // give individual records their parent key, so colors match on zoom
+        function populateLeafValue(key, data) {
+            key = data.key || key;
+            if (data instanceof Array) {
+                $.each(data, function (index, item) {
+                    populateLeafValue(key, item);
+                });
+            } else if (data.values) {
+                $.each(data.values, function (index, item) {
+                    populateLeafValue(key, item);
+                });
+            } else {
+                data.key = key;
+                data.value = 1;
+            }
+        }
+
+        // retrieve data and structure data for treemap chart
+        function crimeTreeMap() {
+            d3.csv(crimeDataURL, function (err, res) {
+                if (!err) {
+                    //nest data into the tree levels created above
+                    data = d3.nest();
+                    options.treeLevels.forEach(function (key) {
+                        data.key(function (d) { return key + ": " + titleCase(d[key]); })
+                    });
+
+                    //uncomment to see the mass of raw data in the browser's Dev tools console
+                    //console.log("RAW DATA", res);
+
+                    data = data.entries(res);
+                    populateLeafValue(options.rootname, data);
+
+                    //uncomment to now see the nicely nested data in the console
+                    //console.log("NESTED DATA", data);
+
+                    main(data);
+                }
+            });
+        }
+
+        /* build the treemap with D3 SVG
+        the levels of the treemap display are grandparent > parent > child 
+        these levels define the display of the treemap at any given time
+        and are separate from the treeLevels array that define the data 
+        nesting */
+
+        function main(data) {
+
+            $("#crime-svg-div").remove();
+            $("p.title").remove();
+
+            var root, // data source of the treemap
+                formatNumber = d3.format(options.format),
+                rname = options.rootname,
+                margin = options.margin,
+                extraHeight = 6;
+
+            $('#chart').width(options.width).height(options.height);
+            var width = options.width - margin.left - margin.right,
+                height = options.height - margin.top - margin.bottom - extraHeight;
+
+            //color generator for ten categories of data
+            var color = d3.scale.category10();
+
+            // create x and y scales
+            var x = d3.scale.linear()
+                .domain([0, width])
+                .range([0, width]);
+
+            var y = d3.scale.linear()
+                .domain([0, height])
+                .range([0, height]);
+
+            var treemap = d3.layout.treemap()
+                .children(function (d, depth) {
+                    return depth ? null : d._children;
+                })
+                .sort(function (a, b) {
+                    return a.value - b.value;
+                })
+                .ratio(height / width * 0.5 * (1 + Math.sqrt(5)))
+                .round(false);
+
+            // create main chart area svg
+            var svg = d3.select("#chart").append("div")
+                .attr('id', 'crime-svg-div')
+                .style("width", width + margin.left + margin.right + "px")
+                .style("height", height + margin.bottom + margin.top + "px")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.bottom + margin.top)
+                .style("margin-left", -margin.left + "px")
+                .style("margin.right", -margin.right + "px")
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+                .style("shape-rendering", "crispEdges");
+
+            // create grandparent bar rectangle and text container on top
+            var grandparent = svg.append("g")
+                .attr("class", "grandparent");
+
+            grandparent.append("rect")
+                .attr("y", -margin.top)
+                .attr("width", width)
+                .attr("height", margin.top)
+
+            grandparent.append("text")
+                .attr("x", 6 + (width / 2))
+                .attr("y", 6 - margin.top)
+                .attr("dy", "1.6em")
+                .attr("text-anchor", "middle");
+
+            if (data instanceof Array) {
+                root = {
+                    key: rname,
+                    values: data
+                };
+            } else {
+                root = data;
+            }
+
+            initialize(root);
+            accumulate(root);
+            layout(root);
+            display(root);
+
+            function initialize(root) {
+                root.x = root.y = 0;
+                root.dx = width;
+                root.dy = height;
+                root.depth = 0;
+            }
+
+            //Aggregate the values of all the children nodes
+            function accumulate(d) {
+                return (d._children = d.values) ? d.value = d.values.reduce(function (p, v) {
+                    return p + accumulate(v);
+                }, 0) : d.value;
+            }
+
+            // Compute the treemap layout recursively
+            function layout(d) {
+                if (d._children) {
+                    treemap.nodes({
+                        _children: d._children
+                    });
+                    d._children.forEach(function (c) {
+                        c.x = d.x + c.x * d.dx;
+                        c.y = d.y + c.y * d.dy;
+                        c.dx *= d.dx;
+                        c.dy *= d.dy;
+                        c.parent = d;
+                        layout(c);
+                    });
+                }
+            }
+
+            /* Builds the treemap out of rectangles, with the zoom function 
+            that makes the dynamic treemap so powerful for data exploration.
+            We use a lot of short variable names for D3 operations to make 
+            the math-based display code cleaner and easier to follow. */
+            function display(d) {
+                // Bind data, click listener, add text to grandparent bar
+                grandparent
+                    .datum(d.parent) //set the bound data to grandparent element
+                    .on("click", transition)
+                    .select("text")
+                    .text(name(d));
+
+                // insert a sibling element before grandparent to contain children
+                var g1 = svg.insert("g", ".grandparent")
+                    .datum(d)
+                    .attr("class", "depth");
+
+                // add in data, create a g element for every child
+                var g = g1.selectAll("g")
+                    .data(d._children)
+                    .enter().append("g");
+
+                // zoom (a.k.a., transition) on child click if the child has more children
+                g.filter(function (d) {
+                    return d._children;
+                })
+                    .classed("children", true)
+                    .on("click", transition);
+
+                // create g element for all the enter data
+                var children = g.selectAll(".child")
+                    .data(function (d) {
+                        return d._children || [d];
+                    })
+                    .enter().append("g");
+
+                // write children (grandparent's children, i.e. parent) level rectangles
+                children.append("rect")
+                    .attr("class", "child")
+                    .call(rect);
+
+                // child level text from data item key
+                children.append("text")
+                    .attr("class", "ctext")
+                    .text(function (d) {
+                        if (d._children) {
+                            return d.key;
+                        }
+                    })
+                    .call(text2);
+
+                // create parent rectangles with thick border
+                g.append("rect")
+                    .attr("class", "parent")
+                    .call(rect);
+
+                // add parent level labels
+                var t = g.append("text")
+                    .attr("class", "ptext")
+                    .attr("dy", ".75em");
+
+                t.append("tspan")
+                    .text(function (d) {
+                        return d.key;
+                    });
+                t.append("tspan")
+                    .attr("dy", "1.0em")
+                    .text(function (d) {
+                        return formatNumber(d.value);
+                    });
+                t.call(text);
+
+                // for every child level rectangle, fill color based on key
+                g.selectAll(".child")
+                    .style("fill", function (d) {
+                        return color(d.key);
+                    });
+
+                // transition chart (a.k.a, zoom) when user clicks
+                function transition(d) {
+                    
+
+                    if (transitioning || !d) return;
+
+                    /* don't zoom on the last group, only useful if it 
+                    displayed individual record details on zoom */
+                    var numberOfLevels = options.treeLevels.length;
+                    if (getTreeLevelIndex(d.key) == numberOfLevels - 1) return;
+
+                    transitioning = true;
+
+                    var g2 = display(d),
+                        t1 = g1.transition().duration(750),
+                        t2 = g2.transition().duration(750);
+
+                    // Update the domain only after entering new elements.
+                    x.domain([d.x, d.x + d.dx]);
+                    y.domain([d.y, d.y + d.dy]);
+
+                    // Enable anti-aliasing during the transition.
+                    svg.style("shape-rendering", null);
+
+                    // Draw child nodes on top of parent nodes.
+                    svg.selectAll(".depth").sort(function (a, b) {
+                        return a.depth - b.depth;
+                    });
+
+                    // Fade-in entering text.
+                    g2.selectAll("text").style("fill-opacity", 0);
+
+                    // Transition to the new view, by hiding/showing with opacity settings
+                    t1.selectAll(".ptext").call(text).style("fill-opacity", 0); //old parent
+                    t1.selectAll(".ctext").call(text2).style("fill-opacity", 0); //old child
+                    t2.selectAll(".ptext").call(text).style("fill-opacity", 1); //new parent
+                    t2.selectAll(".ctext").call(text2).style("fill-opacity", 1); //new child
+                    t1.selectAll("rect").call(rect);
+                    t2.selectAll("rect").call(rect);
+
+                    /* Remove the old nodes when the transition is finished.*/
+                     t1.remove().each("end", function () {
+                         svg.style("shape-rendering", "crispEdges");
+                         transitioning = false;
+                    });
+                };
+
+                return g;
+            }
+
+            // set style for text at child level
+            function text(text) {
+                text.selectAll("tspan")
+                    .attr("x", function (d) {
+                        return x(d.x) + 6;
+                    });
+                text.attr("x", function (d) {
+                    return x(d.x) + 6;
+                })
+                    .attr("y", function (d) {
+                        return y(d.y) + 6;
+                    })
+                    .style("opacity", function (d) {
+                        try {
+                            //if text length is longer than the rectangle width, hide it
+                            return this.getComputedTextLength() < x(d.x + d.dx) - x(d.x) ? 1 : 0;
+                        } catch (e) {
+                            return 1;
+                        }
+                    });
+            }
+
+            // place child level text
+            function text2(text) {
+                text.attr("x", function (d) {
+                    try {
+                        return x(d.x + d.dx) - this.getComputedTextLength() - 6;
+                    } catch (e) {
+                        return x(d.x + d.dx) - 10 - 6;
+                    }
+                })
+                    .attr("y", function (d) {
+                        return y(d.y + d.dy) - 6;
+                    })
+                    //hide label if not enough space
+                    .style("opacity", function (d) {
+                        try {
+                            return this.getComputedTextLength() < x(d.x + d.dx) - x(d.x) ? 1 : 0;
+                        } catch (e) {
+                            return 1;
+                        }
+                    });
+            }
+
+            //place rectangle
+            function rect(rect) {
+                rect.attr("x", function (d) {
+                    return x(d.x);
+                })
+                    .attr("y", function (d) {
+                        return y(d.y);
+                    })
+                    .attr("width", function (d) {
+                        return x(d.x + d.dx) - x(d.x);
+                    })
+                    .attr("height", function (d) {
+                        return y(d.y + d.dy) - y(d.y);
+                    });
+            }
+
+            //generate name of node based on bound data
+            function name(d) {
+                return d.parent ? name(d.parent) + " >> " + d.key + " (" + formatNumber(d.value) + ")" : d.key + " (" + formatNumber(d.value) + ")";
+            }
+        }
+
+        //open About This panel
+        function openAbout() {
+            $("#about").show();
+            return false;
+        }
+
+        //close About This panel
+        function closeAbout() {
+            $("#about").hide();
+            return false;
+        }
+    </script>
+</body>
+
+</html>

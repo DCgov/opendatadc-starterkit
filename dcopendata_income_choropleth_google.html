@@ -1,0 +1,416 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Description: This sample demonstrates how to create a colorful interactive choropleth map of census tracts using data from DC Open Data with the help of Google Map JS API -->
+    <!-- Attribution:
+    Google Map JS API Code Samples, Url: https://developers.google.com/maps/documentation/javascript/examples/;
+    Google Fusion Tables REST API Example: Url: https://developers.google.com/fusiontables/docs/samples/dynamic_styling_template;
+    Daniel Margol, How to create a choropleth map with GeoJSON and Google Maps, Url: https://blog.vizuri.com/how-to-create-a-choropleth-map-with-geojson-and-google-maps.
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/    
+    Snazzy Maps: https://snazzymaps.com/
+    -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">    
+    <title>Census Tracts by Median Income @ Washington, DC</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?client=gme-docg&v=3.26&channel=dcopendatasamples&callback=initMap" async defer></script>
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">    
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: "open_sanssemi", sans-serif;        
+    }
+    
+    #map-canvas {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+    }
+    
+    #legend {
+        background-color: #FFF;
+        margin: 10px;
+        padding: 5px;
+        width: 200px;
+    }
+    
+    #legend p {
+        font-weight: bold;
+        margin-top: 3px;
+        font-size: 14px;
+    }
+    
+    #legend div {
+        clear: both;
+    }
+    
+    #legend div span {
+        font-size: 14px;
+    }
+    
+    .color {
+        height: 24px;
+        width: 58px;
+        margin-right: 10px;
+        float: left;
+        display: block;
+    }
+
+    a {
+        color: #fff;
+        font-family: 'open_sansregular', sans-serif;
+    }    
+    </style>
+    <style>
+    /*styling for title bar and about pop over */
+    #title {
+        color: #FFF;
+        font-family: "open_sanssemibold", sans-serif;
+        padding: 3 0 0 4;
+        font-size: 24px;
+        line-height: 30px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;               
+    }
+    
+    .header {
+        position: relative;
+        padding: 15px 30px 25px 30px;
+        margin: auto;
+        z-index: 500;
+        background-color: rgb(12, 12, 12);
+        box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+        opacity: 0.8;
+    }
+    
+    #about {
+        padding: 10px 20px 20px 20px;
+        z-index: 4000;
+        position: absolute;
+        background-color: #505050;
+        color: white;
+        width: 700px;
+        left: 50%;
+        margin-left: -300px;
+        height: calc(100% - 200px);
+        top: 100px;
+        display: none;
+        overflow: hidden;
+        opacity: 0.95;
+    }
+    
+    #dismiss-about {
+        cursor: pointer;
+        font-size: 30px;
+        float: right;
+        margin-bottom: 10px;
+    }
+    
+    #inner {
+        width: 100%;
+        height: calc(100% - 60px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    </style>
+    <script>
+    var map;
+
+    //Data source from DC Open Data
+    var censusGeoJsonUrl = "https://opendata.arcgis.com/datasets/6969dd63c5cb4d6aa32f15effb8311f3_8.geojson";
+
+    var colorOpacity=0.75;
+
+    var layerStyles = [{
+        'min': 0,
+        'max': 20000,
+        'color': '#ffcccc'
+    }, {
+        'min': 20000,
+        'max': 30000,
+        'color': '#ff9999'
+    }, {
+        'min': 30000,
+        'max': 50000,
+        'color': '#ff6666'
+    }, {
+        'min': 50000,
+        'max': 80000,
+        'color': '#ff3232'
+    }, {
+        'min': 80000,
+        'max': 100000,
+        'color': '#ff0000'
+    }, {
+        'min': 100000,
+        'max': 'plus',
+        'color': '#800000'
+    }];
+
+    function initMap() {
+
+        var latlngDC = new google.maps.LatLng(38.8951, -77.0367); // Coordinates of Washington, DC (area centroid)
+
+        // Set the Map Options to be applied when the map is set.
+        var mapOptions = {
+            zoom: 12,
+            scrollwheel: true,
+            center: latlngDC,
+            mapTypeId: google.maps.MapTypeId.ROADMAP,
+            mapTypeControl: false,
+            mapTypeControlOptions: {
+                mapTypeIds: [google.maps.MapTypeId.ROADMAP, google.maps.MapTypeId.TERRAIN]
+            },
+            streetViewControl: false, //Hide Pegman/street view
+            zoomControlOptions: {
+                position: google.maps.ControlPosition.LEFT_BOTTOM
+            },
+            styles:                    
+                [
+                    {
+                        "featureType": "administrative",
+                        "elementType": "labels.text.fill",
+                        "stylers": [
+                            {
+                                "color": "#444444"
+                            }
+                        ]
+                    },
+                    {
+                        "featureType": "landscape",
+                        "elementType": "all",
+                        "stylers": [
+                            {
+                                "color": "#f2f2f2"
+                            }
+                        ]
+                    },
+                    {
+                        "featureType": "poi",
+                        "elementType": "all",
+                        "stylers": [
+                            {
+                                "visibility": "off"
+                            }
+                        ]
+                    },
+                    {
+                        "featureType": "road",
+                        "elementType": "all",
+                        "stylers": [
+                            {
+                                "saturation": -100
+                            },
+                            {
+                                "lightness": 45
+                            }
+                        ]
+                    },
+                    {
+                        "featureType": "road.highway",
+                        "elementType": "all",
+                        "stylers": [
+                            {
+                                "visibility": "simplified"
+                            }
+                        ]
+                    },
+                    {
+                        "featureType": "road.arterial",
+                        "elementType": "labels.icon",
+                        "stylers": [
+                            {
+                                "visibility": "off"
+                            }
+                        ]
+                    },
+                    {
+                        "featureType": "transit",
+                        "elementType": "all",
+                        "stylers": [
+                            {
+                                "visibility": "off"
+                            }
+                        ]
+                    },
+                    {
+                        "featureType": "water",
+                        "elementType": "all",
+                        "stylers": [
+                            {
+                                "color": "#46bcec"
+                            },
+                            {
+                                "visibility": "on"
+                            }
+                        ]
+                    }
+                ]
+
+        }
+
+        // Set a blank infoWindow to be used for each census tract on click
+        var infoWindow = new google.maps.InfoWindow({
+            content: ""
+        });
+
+        // Set the map to the element ID and give it the map options to be applied
+        map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
+
+        // Create the census tract data layer and load the GeoJson Data
+        var censusLayer = new google.maps.Data();
+        censusLayer.loadGeoJson(censusGeoJsonUrl);
+
+        // Set and apply styling to the censusLayer
+        censusLayer.setStyle(function(feature) {
+            return {
+                fillColor: getColor(feature.getProperty('FAGI_MEDIAN_2010')), // call function to get color for census tract based on the median income
+                fillOpacity: colorOpacity,
+                strokeColor: '#fff',
+                strokeWeight: 1,
+                zIndex: 1
+            };
+        });
+
+        // Add mouseover and mouse out styling for the GeoJSON census tract data
+        censusLayer.addListener('mouseover', function(e) {
+            censusLayer.overrideStyle(e.feature, {
+                strokeColor: '#F01141',
+                strokeWeight: 4,
+                zIndex: 2
+            });
+        });
+
+        censusLayer.addListener('mouseout', function(e) {
+            censusLayer.revertStyle();
+        });
+
+        // Adds mouseover handler
+        censusLayer.addListener('mouseover', function(e) {
+
+            infoWindow.setContent('<div style="line-height:1.00;overflow:hidden;white-space:nowrap;">' + '<b>Census Tract: ' +
+                e.feature.getProperty('TRACT') + '</b><hr><br> Population: ' +
+                e.feature.getProperty('P0010001') + '<br> Area (Sq. Mi.): ' +
+                e.feature.getProperty('SQ_MILES') + '<br> 2010 Median Income: $' +
+                e.feature.getProperty('FAGI_MEDIAN_2010') + '</div>');
+
+            var anchor = new google.maps.MVCObject();
+            anchor.set("position", e.latLng);
+            infoWindow.open(map, anchor);
+        });
+
+        // Set the censusLayer GeoJSON data onto the map
+        censusLayer.setMap(map);
+
+        // returns a color based on the value given when the function is called
+        function getColor(FAGI_MEDIAN_2010) {
+
+            var colors = layerStyles.map(function(item) {
+                return item.color;
+            });
+
+            return FAGI_MEDIAN_2010 >= 100000 ? colors[5] :
+                FAGI_MEDIAN_2010 > 80000 ? colors[4] :
+                FAGI_MEDIAN_2010 > 50000 ? colors[3] :
+                FAGI_MEDIAN_2010 > 30000 ? colors[2] :
+                FAGI_MEDIAN_2010 > 20000 ? colors[1] :
+                colors[0];
+        }
+
+        addLegend(map);
+    }
+
+    // Initialize the legend
+    function addLegend(map) {
+        var legendWrapper = document.createElement('div');
+        legendWrapper.id = 'legendWrapper';
+        legendWrapper.index = 1;
+        map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(
+            legendWrapper);
+        legendContent(legendWrapper);
+    }
+
+    // Generate the content for the legend
+    function legendContent(legendWrapper) {
+        var legend = document.createElement('div');
+        legend.id = 'legend';
+
+        var title = document.createElement('p');
+        title.innerHTML = "Family Median Income";
+        legend.appendChild(title);
+
+        for (var i in layerStyles) {
+            var style = layerStyles[i];
+
+            var legendItem = document.createElement('div');
+
+            var color = document.createElement('span');
+            color.setAttribute('class', 'color');
+            color.style.backgroundColor = style.color;
+            color.style.opacity=colorOpacity;
+            legendItem.appendChild(color);
+
+            var minMax = document.createElement('span');
+            minMax.innerHTML = style.min + ' - ' + style.max;
+            legendItem.appendChild(minMax);
+
+            legend.appendChild(legendItem);
+        }
+
+        legendWrapper.appendChild(legend);
+    }
+
+    //open About This panel
+    function openAbout() {
+        $("#about").show();
+        return false;
+    }
+
+    //close About This panel
+    function closeAbout() {
+        $("#about").hide();
+        return false;
+    }
+    </script>
+</head>
+
+<body>
+    <div id="map-canvas">
+    </div>
+    <div class='header'>
+        <div id="title">Census Tracts by Median Income @ Washington, DC</div>
+        <div id="sourceUrls" style="float:right">
+            <a style="color:rgb(206,206,206); font-size:14px;margin-right: 10px;" href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">This on Github</a>
+            <a style="color:rgb(206,206,206);font-size:14px; " href="javascript:void(0)" onclick="openAbout()">About This Map</a>
+        </div>
+    </div>
+    <div id="about">
+        <a id="dismiss-about" onclick="closeAbout()">×</a>
+        <div id="inner">
+            <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">About this map
+            </p>
+            <p style="font-size: 1.2em;">This sample demonstrates how to create a colorful interactive choropleth map of census tracts using data from DC Open Data with the help of Google Map JS API.</p>
+            <p><strong>Instructions</strong>
+                <br/> Mouse over on census tracts for more information.</p>
+            <p><strong>Built with...</strong>
+                <br/> <a href="https://developers.google.com/maps/documentation/javascript/" target="_blank">Google Maps JS API</a>, <a href="https://jquery.com/" target="_blank">JQuery</a></p>
+            <p><strong>Download Census Tracts - 2010 data in GeoJSON</strong>
+                <br/><a href="https://opendata.arcgis.com/datasets/6969dd63c5cb4d6aa32f15effb8311f3_8.geojson" target="_blank">https://opendata.dc.gov/datasets/6969dd63c5cb4d6aa32f15effb8311f3_8.geojson</a></p>
+            <p><strong>View Census Tracts - 2010 data on DC Open Data</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com/datasets/census-tracts-2010" target="_blank">https://opendata.dc.gov/datasets/6969dd63c5cb4d6aa32f15effb8311f3_8</a></p>
+            <p><strong>DC Open Data</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a></p>
+            <p><strong>DC Open Data Samples</strong>
+                <br/><a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">https://github.com/DCgov/opendatadc-starterkit</a></p>
+            <div id="logos" style="text-align: center">
+                <img src="images\WeAreWashintgonDCFinalLogo-Website.png" title="We are DC logo">
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,732 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <!-- Description: This sample demonstrates how a map can respond to a collapsible tree changes using D3 and Mapbox GL JS API-->
+    <!-- Attribution:
+    Collapsible Tree, Url: https://bl.ocks.org/mbostock/4339083;
+    Mapbox GL JS Examples, Url: https://www.mapbox.com/mapbox-gl-js/example/cluster/
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/
+    -->
+    <meta charset='utf-8'>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no'>
+    <title>Crime Incidents @ Washington, DC</title>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v0.29.0/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v0.29.0/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.2/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.0.2/dist/leaflet.js"></script>
+
+    <!--this is a separate json file that stores the nested data used for querying
+        if you want to use the sample for something else, you will need to generate
+        a new one, either static (as we have) or dynamic (totally possible using D3.nest())-->
+    <script src="DCCrimeTree.js"></script>
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">
+
+    <style>
+        .node {
+            cursor: pointer;
+        }
+
+            .node circle {
+                fill: #fff;
+                stroke: #000;
+                stroke-width: 1.5px;
+            }
+
+            .node text {
+                font: 12px sans-serif;
+            }
+
+        .link {
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 1.5px;
+        }
+
+        body {
+            color: #404040;
+            font: 400 15px/22px;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            font-family: "open_sanssemi", sans-serif;
+        }
+
+        * {
+            -webkit-box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            box-sizing: border-box;
+        }
+
+        .sidebar {
+            position: absolute;
+            width: 700px;
+            top: 70;
+            left: 0;
+            overflow: hidden;
+            border-right: 1px solid rgba(0, 0, 0, 0.25);
+            border: 0px solid blue;
+            z-index: 300;
+            box-shadow: 8px 0px 5px -5px #bdbcbc;
+        }
+
+        .map {
+            position: absolute;
+            right: 0;
+            top: 70px;
+            bottom: 0;
+            border: 0px solid red;
+        }
+
+        /* Marker tweaks */
+        .leaflet-popup-close-button {
+            display: none;
+        }
+
+        .leaflet-popup-content {
+            font: 400 15px/22px 'Source Sans Pro', 'Helvetica Neue', Sans-serif;
+            padding: 0;
+            width: 200px;
+        }
+
+        .leaflet-popup-content-wrapper {
+            padding: 0;
+        }
+
+        .leaflet-popup-content h3 {
+            background: #91c949;
+            color: #fff;
+            margin: 0;
+            display: block;
+            padding: 10px;
+            border-radius: 3px 3px 0 0;
+            font-weight: 700;
+            margin-top: -15px;
+        }
+
+        .leaflet-popup-content div {
+            padding: 10px;
+        }
+
+        .leaflet-container .leaflet-marker-icon {
+            cursor: pointer;
+        }
+
+        .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+            border-top-color: #505050;
+        }
+
+        .mapboxgl-popup-content {
+            background: #505050;
+            color: #fff;
+        }
+
+        /*styling for title bar and about pop over */
+        a {
+            color: #fff;
+            font-family: 'open_sansregular', sans-serif;
+        }
+
+        #geojson-url,
+        #data-src-url {
+            padding: 0px;
+            color: #fff;
+            font-weight: normal;
+            display: inline;
+            font-size: 14px;
+        }
+
+            #geojson-url a,
+            #data-src-url a {
+                color: white;
+            }
+
+        #title {
+            color: #fff;
+            font-family: "open_sanssemibold", sans-serif;
+            padding: 3 0 0 4;
+            font-size: 24px;
+            line-height: 30px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header {
+            position: relative;
+            padding: 15px 30px 25px 30px;
+            margin: auto;
+            z-index: 500;
+            background-color: rgb(12, 12, 12);
+            box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+            opacity: 0.8;
+            height: 70px;
+        }
+
+        #about {
+            padding: 10px 20px 20px 20px;
+            z-index: 4000;
+            position: absolute;
+            background-color: #505050;
+            color: white;
+            width: 700px;
+            left: 50%;
+            margin-left: -300px;
+            height: calc(100% - 200px);
+            top: 100px;
+            display: none;
+            overflow: hidden;
+            opacity: 0.95;
+        }
+
+        #dismiss-about {
+            cursor: pointer;
+            font-size: 30px;
+            float: right;
+            margin-bottom: 10px;
+        }
+
+        #inner {
+            width: 100%;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
+</head>
+
+<body>
+    <div class='header'>
+        <div id="title">Crime Incidents @ Washington, DC</div>
+        <div style="float:right">
+            <a style="color:rgb(206,206,206);font-size:14px; margin-right: 10px;" href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">This on Github</a>
+            <a style="color:rgb(206,206,206);font-size:14px; " href="javascript:void(0)" onclick="openAbout()">About This Map</a>
+        </div>
+    </div>
+    <div id='tree' class="sidebar"></div>
+    <div id='map' class='map'>
+    </div>
+    <div id="about">
+        <a id="dismiss-about" onclick="closeAbout()">×</a>
+        <div id="inner">
+            <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">
+                About this map
+            </p>
+            <p style="font-size: 1.2em;">This sample demonstrates how to use a collapsible tree to drive map selections using D3 and Mapbox GL JS API.</p>
+            <p>
+                <strong>Instructions</strong>
+                <br> Use tree view to explore DC crime incidents by different categories, when select leaf node, the related crime data will be added on the map.
+            </p>
+            <p>
+                <strong>Built with...</strong>
+                <br><a href="https://www.mapbox.com/mapbox-gl-js/api/">Mapbox GL JS</a>, <a href="https://d3js.org/">D3</a>, <a href="https://jquery.com/">jQuery</a>
+            </p>
+            <p>
+                <strong>Download Crime Incidents Data in GeoJSON</strong>
+                <br>
+                <span id="geojson-url">
+                </span>
+            </p>
+            <p>
+                <strong>View Crime Incidents Data on DC Open Data</strong>
+                <br>
+                <span id="data-src-url">
+                </span>
+            </p><p>
+                <strong>DC Open Data</strong>
+                <br><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a>
+            </p>
+            <p>
+                <strong>DC Open Data Samples</strong>
+                <br> <a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">https://github.com/DCgov/opendatadc-starterkit</a>
+            </p>
+            <div id="logos" style="text-align: center">
+                <img src="images\WeAreWashintgonDCFinalLogo-Website.png" title="We are DC logo">
+            </div>
+        </div>
+    </div>
+    <script>
+
+        /* main window operations */
+        var windowInHeight = window.innerHeight;
+        var sideBarWidth = 700;
+        var topBarHeight = 70;
+        var rootLabelWidth = 120;
+
+        /* resize map to fit window, saving space for side bar */
+        var mapWidth = $(window).width() - sideBarWidth;
+        $("#map").css('width', mapWidth);
+
+        $(window).resize(function () {
+            var mapWidth = $(window).width() - sideBarWidth;
+            $("#map").css('width', mapWidth);
+        });
+
+
+        /* start by creating the collapsible tree */
+        var i = 0,
+            duration = 750, //animation duration
+            root;           //tree data source
+
+        var tree = d3.layout.tree()
+            .size([windowInHeight - topBarHeight, sideBarWidth]);
+
+        // diagonal generator to create curved path
+        var diagonal = d3.svg.diagonal()
+            .projection(function (d) {
+                return [d.y, d.x];
+            });
+
+        var svg = d3.select("#tree").append("svg")
+            .attr("width", "100%")
+            .attr("height", windowInHeight - topBarHeight - 6)
+            .append("g")
+            .attr("transform", "translate(" + rootLabelWidth + ", 0)");
+
+        $(document).ready(function () {
+            root = dcCrimeDataTree; //source data in tree structure, from DCCrimeTree.js
+            root.x0 = windowInHeight / 2;
+            root.y0 = 0;
+
+            //collapse all children in the branch
+            function collapse(d) {
+                if (d.children) {
+                    d._children = d.children;
+                    d._children.forEach(collapse);
+                    d.children = null;
+                }
+            }
+
+            root.children.forEach(collapse);
+            update(root);
+        });
+
+        d3.select(self.frameElement).style("height", "100%");
+
+        //update the tree chart when tree's bound data changes.
+        //change in this scenario could be children hiding or showing
+        function update(source) {
+            // Compute the new tree layout.
+            var nodes = tree.nodes(root).reverse(),
+                links = tree.links(nodes);
+
+            // Normalize for fixed-depth.
+            nodes.forEach(function (d) {
+                d.y = d.depth * 120;
+            });
+
+            // Update the nodes…
+            var node = svg.selectAll("g.node")
+                .data(nodes, function (d) {
+                    return d.id || (d.id = ++i);
+                });
+
+            // create any new nodes (enter nodes) at the parent's previous position.
+            var nodeEnter = node.enter().append("g")
+                .attr("class", "node")
+                .attr("transform", function (d) {
+                    return "translate(" + source.y0 + "," + source.x0 + ")";
+                })
+                .on("click", click);
+
+            //draw a circle
+            nodeEnter.append("circle")
+                .attr("r", 1e-6) //1e-6=0.000001, best practice to use 1e-6 rather than 0 to avoid invalid css attribute
+                .style("fill", function (d) {
+                    return d._children ? "#808080" : "#fff";
+                });
+
+            //add node label
+            nodeEnter.append("text")
+                .attr("x", function (d) {
+                    return d.children || d._children ? -10 : 10;
+                })
+                .attr("dy", ".35em")
+                .attr("text-anchor", function (d) {
+                    return d.children || d._children ? "end" : "start";
+                })
+                .text(function (d) {
+                    return d.name;
+                })
+                .style("fill-opacity", 1e-6);
+
+            // Transition new nodes to their new position
+            var nodeUpdate = node.transition()
+                .duration(duration)
+                .attr("transform", function (d) {
+                    return "translate(" + d.y + "," + d.x + ")";
+                });
+
+            // resize circle radius
+            nodeUpdate.select("circle")
+                .attr("r", 5)
+                .style("fill", function (d) {
+                    return d._children ? "#808080" : "#fff";
+                });
+
+            nodeUpdate.select("text")
+                .style("fill-opacity", 1);
+
+            // Transition exiting nodes to the parent's new position.
+            var nodeExit = node.exit().transition()
+                .duration(duration)
+                .attr("transform", function (d) {
+                    return "translate(" + source.y + "," + source.x + ")";
+                })
+                .remove();
+
+            nodeExit.select("circle")
+                .attr("r", 1e-6); // resize to minimum while transition
+
+            nodeExit.select("text")
+                .style("fill-opacity", 1e-6); //make invisible while transition
+
+            // Update the links…
+            var link = svg.selectAll("path.link")
+                .data(links, function (d) {
+                    return d.target.id;
+                });
+
+            // Enter any new links at the parent's previous position.
+            link.enter().insert("path", "g")
+                .attr("class", "link")
+                .attr("d", function (d) {
+                    var o = {
+                        x: source.x0,
+                        y: source.y0
+                    };
+                    //generate link path from source to target using diagonal generator
+                    return diagonal({
+                        source: o,
+                        target: o
+                    });
+                });
+
+            // Transition links to their new position.
+            link.transition()
+                .duration(duration)
+                .attr("d", diagonal);
+
+            // Transition exiting nodes to the parent's new position.
+            link.exit().transition()
+                .duration(duration)
+                .attr("d", function (d) {
+                    var o = {
+                        x: source.x,
+                        y: source.y
+                    };
+                    return diagonal({
+                        source: o,
+                        target: o
+                    });
+                })
+                .remove();
+
+            // Store the old positions for transition.
+            nodes.forEach(function (d) {
+                d.x0 = d.x;
+                d.y0 = d.y;
+            });
+        }
+
+        // Toggle children on click.
+        function click(d) {
+            // update map if node is leaf
+            if ((d.children == null) && (d._children == null)) {
+                updateMap(d);
+            }
+
+            if (d.children) {
+                d._children = d.children; //store children in temp var
+                d.children = null; //hide children
+            } else {
+                d.children = d._children; //restore children from temp var, show children
+                d._children = null;
+            }
+            update(d);
+        }
+
+        /* MAP stuff starts here*/
+
+        var dcwardGeoJsonUrl = "https://opendata.arcgis.com/datasets/0ef47379cbae44e88267c01eaec2ff6e_31.geojson";
+
+        var crimeDataSources = [
+            { key: "30days", value: "https://working-dcgis.opendata.arcgis.com/datasets/dc3289eab3d2400ea49c154863312434_8" },
+            { key: "2016", value: "https://working-dcgis.opendata.arcgis.com/datasets/bda20763840448b58f8383bae800a843_26" },
+            { key: "2015", value: "https://working-dcgis.opendata.arcgis.com/datasets/35034fcb3b36499c84c94c069ab1a966_27" },
+            { key: "2014", value: "https://working-dcgis.opendata.arcgis.com/datasets/6eaf3e9713de44d3aa103622d51053b5_9" },
+            { key: "2013", value: "https://working-dcgis.opendata.arcgis.com/datasets/5fa2e43557f7484d89aac9e1e76158c9_10" },
+            { key: "2012", value: "https://working-dcgis.opendata.arcgis.com/datasets/010ac88c55b1409bb67c9270c8fc18b5_11" }
+        ];
+
+        /* populate data source links on about box */
+
+        var linkListHtml;
+        var linkListHtmls = [];
+        crimeDataSources.forEach(function (source, i) {
+            var dataSourceURL = source["value"];
+            linkListHtmls.push("<a href='" + dataSourceURL + ".geojson' " + "id='a" + i + "'>" + source["key"] + "</a>");
+        });
+        linkListHtml=linkListHtmls.join("&nbsp;")
+        $('#geojson-url').html(linkListHtml);
+
+        linkListHtml = linkListHtml.replace(".geojson", "");
+        $('#data-src-url').html(linkListHtml);
+
+        var crimeDataArray = [];
+        var currentLayer = null;
+        var nonClusterLyrId = "non-cluster-layer";
+        var wardLayer = null;
+
+        //Replace with your own token
+        mapboxgl.accessToken = "pk.eyJ1Ijoib2N0b2RjIiwiYSI6ImNpeWRjZm0yNDAwMDUzMGs1Z3JyZmd2NXQifQ.Y8a2TFYzj-5Oy3hTVb9cfw";
+
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/light-v9',
+            center: [-77.034084142948, 38.909671288923],
+            zoom: 11
+        });
+
+        var popup = new mapboxgl.Popup({
+            closeOnClick: false,
+            closeButton: false
+        });
+
+        /* legend for mapbox clustering */
+        var clusterLayerColors = [
+            [150, '#ff0000'],
+            [20, '#FFC300'],
+            [0, '#51bbd6']
+        ];
+
+        /* add wards layer to map*/
+        map.on('load', function () {
+
+            map.addSource('dcward', {
+                'type': 'geojson',
+                'data': dcwardGeoJsonUrl
+            });
+
+            map.addLayer({
+                'id': 'dcward-layer',
+                'type': 'fill',
+                'source': 'dcward',
+                'paint': {
+                    'fill-color': 'rgba(200, 100, 240, 0.1)',
+                    'fill-outline-color': 'rgba(200, 100, 240, 2)'
+                }
+            });
+
+            $.getJSON(dcwardGeoJsonUrl, function (dt) {
+                wardLayer = L.geoJson(dt, {});
+
+            });
+
+            getCrimeGeoJsonData();
+        });
+
+        /* load all crime data at once into array */
+        function getCrimeGeoJsonData() {
+            crimeDataSources.forEach(function (source, i) {
+                var dataSourceURL = source["value"];
+                d3.json(dataSourceURL + ".geojson", function (err, data) {
+                    if (data) {
+                        var crimeObj = {
+                            dataName: "crime" + source["key"],
+                            dataSource: dataSourceURL,
+                            dataAPI: dataSourceURL + "_geojson",
+                            geojsonData: data,
+                        };
+                        crimeDataArray.push(crimeObj);
+                    }
+                });
+            });
+        }
+
+        //Update map layers when user clicks a leaf node
+        function updateMap(data) {
+
+            var selectedData = [];
+            var filteredData = {};
+            var selectedSourceData;
+            var wardBounds = new mapboxgl.LngLatBounds();
+
+            //pick data source
+            $.each(crimeDataArray, function (i, obj) {
+                if (obj.dataName == data.dataName) {
+                    selectedSourceData = obj.geojsonData;
+                    return false;
+                }
+            });
+
+            //by month
+            if (data.type) {
+                $.each(selectedSourceData.features, function (i, d) {
+                    var tmp = Date.parse(d.properties.REPORTDATETIME);
+                    d.properties.month = new Date(tmp).getMonth() + 1;
+
+                    if (d.properties.month.toString() == data.keyValue) {
+                        selectedData.push(d);
+                    }
+                });
+            } else {
+                $.each(selectedSourceData.features, function (i, d) {
+                    if (d.properties[data.keyName.toUpperCase()] == data.keyValue.toUpperCase()) {
+                        selectedData.push(d);
+                    }
+                });
+            }
+
+            filteredData.features = selectedData;
+            filteredData.type = "FeatureCollection";
+
+            //We need to use add-remove layers to mannually update clusters here because setfilter on attributes does not work for cluster layers            
+            //Please refer to https://github.com/mapbox/mapbox-gl-js/issues/2626
+
+            if (currentLayer) {
+                //remove existing data source
+                map.removeSource(currentLayer.id);
+
+                //remove existing non-cluster layer
+                map.removeLayer(currentLayer.id);
+
+                //Remove existing cluster layers
+                for (var k = 0; k < clusterLayerColors.length; k++) {
+                    map.removeLayer("cluster-" + k);
+                }
+
+                // Remove existing label layer
+                map.removeLayer("cluster-count");
+            }
+
+            map.addSource(data.dataName, {
+                'type': 'geojson',
+                cluster: true,
+                clusterMaxZoom: 14, // Max zoom to cluster points on
+                clusterRadius: 50, // Radius of each cluster when clustering points (defaults to 50)
+                'data': filteredData
+            });
+
+            //add non-cluster layer
+            map.addLayer({
+                "id": data.dataName,
+                "type": "circle",
+                "source": data.dataName,
+                "paint": {
+                    "circle-color": "red",
+                    "circle-opacity": 0.75,
+                    "circle-radius": 5
+                },
+                "filter": ["!has", "point_count"]  
+            });
+
+            //add cluster layers
+            clusterLayerColors.forEach(function (layer, i) {
+                map.addLayer({
+                    "id": "cluster-" + i,
+                    "type": "circle",
+                    "source": data.dataName,
+                    "paint": {
+                        "circle-color": layer[1],
+                        "circle-radius": 10 * (4 - i),
+                        "circle-opacity": 0.6,
+                        "circle-stroke-width": 1,
+                        "circle-stroke-color": layer[1]
+                    },
+                    "filter": i == 0 ? [">=", "point_count", layer[0]] : ["all", [">=", "point_count", layer[0]],
+                        ["<", "point_count", clusterLayerColors[i - 1][0]]
+                    ]
+                });
+            });
+
+            // Add a layer for the clusters' count labels
+            map.addLayer({
+                "id": "cluster-count",
+                "type": "symbol",
+                "source": data.dataName,
+                "layout": {
+                    "text-field": "{point_count}",
+                    "text-font": [
+                        "DIN Offc Pro Medium",
+                        "Arial Unicode MS Bold"
+                    ],
+                    "text-size": 12
+                }
+            });
+
+            //Attach mouseover and mousemove event listener
+            if (!currentLayer) {
+                map.on('mousemove', function (e) {
+                    var features = map.queryRenderedFeatures(e.point, {
+                        layers: [nonClusterLyrId]
+                    });
+                    // Change the cursor style as a UI indicator.
+                    map.getCanvas().style.cursor = (features.length) ? 'pointer' : '';
+                });
+
+                map.on('click', function (e) {
+                    var features = map.queryRenderedFeatures(e.point, {
+                        layers: [nonClusterLyrId]
+                    });
+                    popup.remove();
+
+                    if (!features.length) {
+                        popup.remove();
+                        return;
+                    }
+
+                    if ((features.length == 1) && (!features[0].properties.point_count)) {
+                        var feature = features[0];
+
+                        var cont = "Time: " + feature.properties.REPORTDATETIME + "<br>Crime: " + feature.properties.OFFENSE + "<br>Location: " + feature.properties.BLOCKSITEADDRESS;
+
+                        /* Use wrapped coordinates to ensure longitude is within (180, -180);
+                        (generally, not a problem in this part of the world) */
+                        var coords = feature.geometry.coordinates;
+                        var ll = new mapboxgl.LngLat(coords[0], coords[1]);
+                        var wrapped = ll.wrap();
+
+                        popup.setLngLat(wrapped)
+                            .setHTML(cont)
+                            .addTo(map);
+                    }
+                });
+            }
+
+            currentLayer = map.getLayer(data.dataName);
+            nonClusterLyrId = data.dataName;
+
+            //zoom to ward or zoom to full DC
+            var bounds = null;
+            if (data.keyName == "WARD") {
+                wardLayer.eachLayer(function (layer) {
+                    if (layer.feature.properties["WARD_ID"] == data.keyValue) {
+                        bounds = layer.getBounds();
+                    }
+                });
+            } else { //use wards layer to get extent
+                bounds = wardLayer.getBounds();
+            }
+
+            var minLngLat = [bounds._southWest.lng, bounds._southWest.lat];
+            var maxLngLat = [bounds._northEast.lng, bounds._northEast.lat];
+            map.fitBounds([minLngLat, maxLngLat]);
+            return;
+        }
+
+        //open About This panel
+        function openAbout() {
+            $("#about").show();
+            return false;
+        }
+
+        //close About This panel
+        function closeAbout() {
+            $("#about").hide();
+            return false;
+        }
+    </script>
+</body>
+</html>

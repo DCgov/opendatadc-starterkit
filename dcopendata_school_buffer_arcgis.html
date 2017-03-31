@@ -1,0 +1,231 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <!-- Description: This sample demonstrates how to use geometry engine to buffer public schools from DC Open Data using Esri ArcGIS JavaScript API 4.X. -->
+    <!-- Attribution: 
+    ArcGIS Geodev Hackerlabs, Url: https://github.com/Esri/geodev-hackerlabs 
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/
+    -->
+    <title>Buffer Pubic Schools @Washington, DC</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="stylesheet" href="https://js.arcgis.com/4.0/esri/css/main.css">
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">        
+    <style>
+    html,
+    body,
+    #map-view {
+        position: absolute;
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+    }
+
+    body {
+        font-family: "open_sanssemi", sans-serif;        
+    }
+    
+    .esri-ui-top-left {
+        top: 80px;
+    }
+
+    /*styling for title bar and about pop over */
+    #title {
+        color: #fff;
+        font-family: "open_sanssemibold", sans-serif;
+        padding: 3 0 0 4;
+        font-size: 24px;
+        line-height: 30px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .header {
+        position: relative;
+        padding: 15px 30px 25px 30px;
+        margin: auto;
+        z-index: 300;
+        background-color: rgb(12, 12, 12);
+        box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+        opacity: 0.8;
+    }
+    
+    #about {
+        padding: 10px 20px 20px 20px;
+        z-index: 4000;
+        position: absolute;
+        background-color: rgb(39, 39, 39);
+        color: white;
+        width: 700px;
+        left: 50%;
+        margin-left: -300px;
+        height: calc(100% - 200px);
+        top: 100px;
+        display: none;
+        overflow: hidden;
+        opacity: 0.95;
+    }
+    
+    #dismiss-about {
+        cursor: pointer;
+        font-size: 30px;
+        float: right;
+        margin-bottom: 10px;
+    }
+    
+    #inner {
+        width: 100%;
+        height: calc(100% - 60px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;    
+    }
+
+    a {
+        color: #fff;
+        font-family: 'open_sansregular', sans-serif;
+    } 
+    </style>
+
+    <script src="https://js.arcgis.com/4.0/"></script>
+    <script>
+    //Public Schools map services url
+    var schoolUrl = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Education_WebMercator/MapServer/5";
+
+    require([
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/layers/GraphicsLayer",
+        "esri/layers/FeatureLayer",
+        "esri/Graphic",
+        "esri/symbols/SimpleFillSymbol",
+        "esri/geometry/geometryEngineAsync",
+        "esri/renderers/SimpleRenderer",
+        "esri/symbols/SimpleMarkerSymbol",
+        "esri/symbols/SimpleLineSymbol",
+        "esri/Color",
+        "dojo/on",
+        "dojo/dom",        
+        "dojo/dom-style",
+        "dojo/domReady!"
+    ], function(Map, MapView,
+        GraphicsLayer, FeatureLayer, Graphic, SimpleFillSymbol, geometryEngineAsync, SimpleRenderer, SimpleMarkerSymbol, SimpleLineSymbol, Color, on, dom, domStyle) {
+        var map = new Map({
+            basemap: "dark-gray"
+        });
+        var view = new MapView({
+            container: "map-view",
+            map: map,
+            center: [-77.0252, 38.9029],        
+            zoom: 12
+        });
+        // disable popup
+        view.popupManager.enabled=false;
+
+        // Add a layer to show the calculated buffer, and a layer for the buffer source data.
+        var bufferLayer = new GraphicsLayer();
+        var schoolLayer = new FeatureLayer({
+            url: schoolUrl
+        });
+
+        // Define school layer symbol
+        var line = new SimpleLineSymbol();
+        line.color = new Color('#fff');
+        var marker = new SimpleMarkerSymbol();
+        marker.size = 6;
+        marker.outline = line;
+        marker.color = new Color('#ef5151');
+        schoolLayer.renderer = new SimpleRenderer({
+            symbol: marker
+        });
+
+        map.addMany([bufferLayer, schoolLayer]);
+        // Configure the output buffer.
+        var bufferSymbol = new SimpleFillSymbol({
+            color: [0, 100, 255, 0.4],
+            style: "solid",
+            outline: {
+                color: [0, 100, 255],
+                width: 1
+            }
+        });
+
+        // Buffer the view's contents
+        view.whenLayerView(schoolLayer).then(function(schoolLayerView) {
+            schoolLayerView.watch("updating", function(isUpdating) {
+                if (!isUpdating) {
+                    schoolLayerView.queryFeatures().then(function(schoolGraphics) {
+                        // We need geometries, not graphics for the buffer operation.
+                        var schoolPts = schoolGraphics.map(function(schoolGraphic) {
+                            return schoolGraphic.geometry;
+                        });
+                        // Buffer and union all the points in the layer view.
+                        geometryEngineAsync.geodesicBuffer(schoolPts, 0.4, "miles", true).then(function(totalBuffer) {
+                            // Display the unioned buffer on the map.
+                            bufferLayer.removeAll();
+                            bufferLayer.add(new Graphic({
+                                geometry: totalBuffer[0],
+                                symbol: bufferSymbol
+                            }));
+                        });
+                    });
+                }
+            });
+        });
+
+        //open About This panel
+        on(dom.byId("about-map"), "click", function() {
+          domStyle.set("about", "display", "block");
+          return false;
+        });
+
+        //close About This panel
+        on(dom.byId("dismiss-about"), "click", function() {
+          domStyle.set("about", "display", "none");
+          return false;
+        });
+
+    });
+    </script>
+</head>
+
+<body>
+    <div id="map-view"></div>
+    <div class='header'>
+        <div id="title">Buffer Pubic Schools @Washington, DC</div>
+        <div style="float:right">
+            <a style="color:rgb(206,206,206);font-size:14px;margin-right: 10px;" href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">This on Github</a>
+            <a id="about-map" style="color:rgb(206,206,206);font-size:14px; " href="javascript:void(0)">About This Map</a>
+        </div>
+    </div>
+    <div id="about">
+        <a id="dismiss-about">×</a>
+        <div id="inner">
+            <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">About this map
+            </p>
+            <p style="font-size: 1.2em;">
+                This sample demonstrates how to use geometry engine to buffer public schools from DC Open Data using Esri ArcGIS JavaScript API 4.X.
+            </p>
+            <p><strong>Instructions</strong>
+                <br/> Load the application and the school buffers will show up</p>
+            <p><strong>Built with...</strong>
+                <br/> <a href="https://dojotoolkit.org/">Dojo</a>, <a href="https://developers.arcgis.com/javascript/">ArcGIS JS API</a></p>
+            <p><strong>Public Schools Map Service</strong>
+                <br/><a href="https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Education_WebMercator/MapServer/5">https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Education_WebMercator/MapServer/5</a></p>
+            <p><strong>View Public Schools Data on DC Open Data</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com/datasets/public-schools" target="_blank">https://opendata.dc.gov/datasets/4ac321b2d409438ebd76a6569ad94034_5</a></p>
+            <p><strong>DC Open Data</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a></p>
+            <p><strong>Github Repository</strong>
+                <br/><a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">https://github.com/DCgov/opendatadc-starterkit</a></p>
+            <br/>
+            <div id="logos" style="text-align: center">
+                <img src="images\WeAreWashintgonDCFinalLogo-Website.png" title="We are DC logo">
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

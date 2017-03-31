@@ -1,0 +1,198 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <!-- Description: This sample demonstrates how to use clickable polygons to view information about the selected polygon -->
+    <!-- Attribution: 
+    Leaflet Tutorials, Url: https://leafletjs.com/examples.html 
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/
+    -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Wards @ Washington, DC</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.2/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.0.2/dist/leaflet.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "open_sanssemi", sans-serif;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        a {
+            color: #fff;
+            font-family: 'open_sansregular', sans-serif;
+        }
+ 
+        /*styling for title bar and about pop over */
+
+        #title {
+            color: #FFF;
+            font-family: "open_sanssemibold", sans-serif;
+            padding: 3 0 0 4;
+            font-size: 24px;
+            line-height: 30px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header {
+            position: relative;
+            padding: 15px 30px 25px 30px;
+            margin: auto;
+            z-index: 500;
+            background-color: rgb(12, 12, 12);
+            box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+            opacity: 0.8;
+        }
+
+        #about {
+            padding: 10px 20px 20px 20px;
+            z-index: 4000;
+            position: absolute;
+            background-color: #505050;
+            color: white;
+            width: 700px;
+            left: 50%;
+            margin-left: -300px;
+            height: calc(100% - 200px);
+            top: 100px;
+            display: none;
+            overflow: hidden;
+            opacity: 0.95;
+        }
+
+        #dismiss-about {
+            cursor: pointer;
+            font-size: 30px;
+            float: right;
+            margin-bottom: 10px;
+        }
+
+        #inner {
+            width: 100%;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
+</head>
+
+<body>
+<div id="map"></div>
+<div class='header'>
+    <div id="title">Wards @ Washington, DC</div>
+    <div style="float:right;">
+        <a style="color:rgb(206,206,206);font-size:14px; margin-right:10px;"
+           href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">This on Github</a>
+        <a style="color:rgb(206,206,206);font-size:14px;" href="javascript:void(0)"
+           onclick="openAbout()">About This Map</a>
+    </div>
+</div>
+<div id="about">
+    <a id="dismiss-about" onclick="closeAbout()">×</a>
+    <div id="inner">
+        <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">About this map
+        </p>
+        <p style="font-size:1.2em;">
+            This sample demonstrates how to load polygons from DC Open Data to overlay a map</p>
+        <p><strong>Instructions</strong>
+            <br/> Click a ward on the map to display info</p>
+        <p><strong>Built with...</strong>
+            <br/> <a href="https://leafletjs.com/">Leaflet</a>, <a href="https://jquery.com/">jQuery</a></p>
+        <p><strong>Download Ward 2012 Data in GeoJSON</strong>
+            <br/><a href="https://opendata.arcgis.com/datasets/0ef47379cbae44e88267c01eaec2ff6e_31.geojson">https://opendata.dc.gov/datasets/0ef47379cbae44e88267c01eaec2ff6e_31.geojson</a>
+        </p>
+        <p><strong>View Ward 2012 Data on DC Open Data</strong>
+            <br/><a href="https://working-dcgis.opendata.arcgis.com/datasets/ward-2012" target="_blank">https://opendata.dc.gov/datasets/0ef47379cbae44e88267c01eaec2ff6e_31</a>
+        </p>
+        <p><strong>DC Open Data</strong>
+            <br/><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a></p>
+        <p><strong>Github Repository</strong>
+            <br/><a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">https://github.com/DCgov/opendatadc-starterkit</a>
+        </p>
+        <div id="logos" style="text-align: center">
+            <img src="https://moca.dc.gov/sites/default/files/styles/callout_interior_graphic/public/dc/sites/ocaf/agency_content/images/We%20Are%20Washington.png"
+                 title="We are DC logo">
+        </div>
+    </div>
+</div>
+<script>
+    //Data source from DC Open Data
+    var wardGeoJsonUrl = "https://opendata.arcgis.com/datasets/0ef47379cbae44e88267c01eaec2ff6e_31.geojson";
+
+    //Replace with your own token 
+    var accessToken = "pk.eyJ1Ijoib2N0b2RjIiwiYSI6ImNpeWRjZm0yNDAwMDUzMGs1Z3JyZmd2NXQifQ.Y8a2TFYzj-5Oy3hTVb9cfw";
+
+    //sets map functions including turning off the standard zoom buttons
+    //and setting intial map focus point
+    var map = L.map('map', {
+        center: [38.8929, -77.0252],
+        zoom: 12,
+        zoomControl: false
+    });
+
+    //Create map and load basemap tile layer
+    L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+        attribution: 'Map data &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+        '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+        'Imagery © <a href="https://mapbox.com">Mapbox</a>',
+        id: 'mapbox.streets',
+        maxZoom: 17,
+        minZoom: 9,
+        accessToken: accessToken
+    }).addTo(map);
+
+    // Add our zoom control manually where we want to
+    var zoomControl = L.control.zoom({
+        position: 'bottomleft'
+    });
+    map.addControl(zoomControl);
+
+    //set style of ward layer
+    function style(feature) {
+        return {
+            weight: 2,
+            opacity: 0.8,
+            color: 'blue',
+            fillOpacity: 0.0
+        };
+    }
+
+    //Add DC Ward geojson to map
+    $.getJSON(wardGeoJsonUrl, function (data) {
+        var geojson = L.geoJson(data, {
+            style: style,
+            onEachFeature: function (feature, layer) {
+                //create popup for each ward polygon
+                layer.bindPopup(feature.properties.NAME + "<br>" + "Rep. " + feature.properties.REP_NAME + "," + "<br>" + feature.properties.REP_PHONE)
+            }
+        });
+
+        geojson.addTo(map);
+
+    });
+
+    //open About This panel
+    function openAbout() {
+        $("#about").show();
+        return false;
+    }
+
+    //close About This panel
+    function closeAbout() {
+        $("#about").hide();
+        return false;
+    }
+</script>
+</body>
+</html>

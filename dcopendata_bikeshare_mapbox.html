@@ -1,0 +1,547 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <!-- Description: This sample demonstrates how to create a buffer and use it make selection using Mapbox JS api and Turf -->
+    <!-- Attribution:
+    Peter Liu, Find your nearest cup of coffee with Turf, Url: https://www.mapbox.com/blog/coffee-with-turf/
+    Mapbox JS API Examples, Url: https://www.mapbox.com/mapbox.js/example/v1.0.0/
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/
+    -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Find Nearest Bike Share Location @ Washington, DC</title>
+    <script src='https://api.mapbox.com/mapbox.js/v3.0.1/mapbox.js'></script>
+    <script src='https://api.tiles.mapbox.com/mapbox.js/plugins/turf/v1.3.0/turf.min.js'></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <link href='https://api.mapbox.com/mapbox.js/v3.0.1/mapbox.css' rel='stylesheet' />
+    <link href='https://www.mapbox.com/base/latest/base.css' rel='stylesheet' />
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        path {
+            pointer-events: none;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        a {
+            color: #fff;
+            font-family: 'open_sansregular', sans-serif;
+        }
+
+        .leaflet-popup-content .marker-title {
+            font-weight: 400;
+            color: #999;
+            line-height: 1.3em;
+        }
+
+        .marker-title {
+            color: #00704A;
+            font-weight: bold;
+        }
+
+        #findme {
+            display: none;
+            background: #353333;
+        }
+
+        #milecount {
+            line-height: 2em;
+            color: #fff;
+        }
+
+        #search-results {
+            height: 0px;
+            overflow: visible;
+            display: none;
+        }
+
+        input:focus + #search-results,
+        #search-results:active {
+            display: block;
+        }
+
+        .result {
+            background: gray;
+            width: 260px;
+            display: block;
+            padding: 10px;
+            cursor: pointer;
+            line-height: 1.4em;
+            color:#fff;
+        }
+
+        .result:hover {
+            font-weight: bold;
+            font-style: italic;
+        }
+
+        .leaflet-container {
+            cursor: default;
+        }
+
+        .leaflet-marker-icon {
+            cursor: default;
+        }
+
+        .leaflet-popup-content {
+            padding: 10px;
+        }
+
+        .leaflet-marker-icon:active ~ * {
+            pointer-events: none;
+        }
+
+        .leaflet-marker-draggable:hover {
+            cursor: -webkit-grab;
+        }
+
+        .leaflet-marker-draggable:active {
+            cursor: -webkit-grabbing;
+        }
+
+        path[stroke-opacity='1'] {
+            stroke-dashoffset: 10000;
+            stroke-dasharray: 10000;
+            -webkit-transition: stroke-dashoffset 6s;
+        }
+
+        .distance-icon {
+            border-radius: 10px;
+            background: #fff;
+            color: #00704A;
+            text-align: center;
+            display: inline-block;
+            border: 2px solid #00704A;
+        }
+
+        a:link {
+            color: white;
+            background-color: transparent;
+            text-decoration: underline;
+        }
+    </style>
+    <style>
+        /*styling for title bar and about pop over */
+
+        #title {
+            color: #FFF;
+            font-family: "open_sanssemibold", sans-serif;
+            padding: 3 0 0 4;
+            font-size: 24px;
+            line-height: 30px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header {
+            position: relative;
+            padding: 15px 30px 25px 30px;
+            margin: auto;
+            z-index: 300;
+            background-color: rgb(12, 12, 12);
+            box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+            opacity: 0.8;
+        }
+
+        #search-panel {
+            position: absolute;
+            background-color: #505050;
+            top: 100px;
+            left: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        #about {
+            padding: 10px 20px 20px 20px;
+            z-index: 4000;
+            position: absolute;
+            background-color: #505050;
+            color: white;
+            width: 700px;
+            left: 50%;
+            margin-left: -300px;
+            height: calc(100% - 200px);
+            top: 100px;
+            display: none;
+            overflow: hidden;
+            opacity: 0.95;
+        }
+
+        #dismiss-about {
+            cursor: pointer;
+            font-size: 30px;
+            float: right;
+            margin-bottom: 10px;
+        }
+
+        #inner {
+            width: 100%;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #result-div {
+            position: absolute;
+            bottom: 20px;
+            background: #505050;
+            padding: 10px;
+            border-radius: 5px;
+            left: 50%;
+            margin-left: -120px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id='map'> </div>
+    <div class='header'>
+        <div id="title">Find Nearest Bike Share Location @ Washington, DC</div>
+        <div style="float:right">
+            <a style="color:rgb(206,206,206);font-size:14px;margin-right: 10px;" href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">This on Github</a>
+            <a style="color:rgb(206,206,206); font-size:14px; " href="javascript:void(0)" onclick="openAbout()">About This Map</a>
+        </div>
+    </div>
+    <div id="search-panel">
+        <span id="geolocation-prompt" style="font-weight: bold; color: white; font-size: 0.75em;">To use your current location, enable browser's location tracking</span>
+        <span style="font-weight: bold; color: white; margin-top: 5px; display: block; ">Enter address or intersection in DC to define your location</span>
+
+        <div style="margin-right: 10px; margin-top: 10px;">
+            <span class='button short fr icon satellite' id='findme'>Use My Location</span>
+            <fieldset class="fr with-icon inline" style="float:left;">
+                <span class="icon search" style='top:5px; left:5px'></span>
+                <input type="text" placeholder='Search' class="round short" autocomplete="off" style='width:260px;margin-right:10px; background-color: gray; color:#fff;'>
+                <div id='search-results'>
+                </div>
+            </fieldset>
+        </div>
+    </div>
+    <div id="result-div">
+        <span style="color:white">Found </span><span id='milecount' class='strong'>0</span><span style="color:white"> Bike Share Locations within </span><span id='distance' style="color:white">0.5 miles</span>
+    </div>
+    <div id="about">
+        <a id="dismiss-about" onclick="closeAbout()">×</a>
+        <div id="inner">
+            <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">
+                About this map
+            </p>
+            <p style="font-size: 1.2em;">This sample demonstrates how to create a buffer and use it make selection using Mapbox JS api and Turf.</p>
+            <p>
+                <strong>Instructions</strong>
+                <br /> Click a location or enter an address to find bike share location in 0.5 miles.
+            </p>
+            <p>
+                <strong>Built with...</strong>
+                <br /> <a href="https://www.mapbox.com/mapbox-gl-js/api/">Mapbox GL JS</a>, <a href="https://jquery.com/">jQuery</a>
+            </p>
+            <p>
+                <strong>Download Bike Share Data in GeoJSON</strong>
+                <br /><a href="https://opendata.arcgis.com/datasets/a1f7acf65795451d89f0a38565a975b3_5.geojson">https://opendata.dc.gov/datasets/a1f7acf65795451d89f0a38565a975b3_5.geojson</a></strong>
+            </p>
+            <p>
+                <strong>View Bike Share Data on DC Open Data</strong>
+                <br /><a href="https://working-dcgis.opendata.arcgis.com/datasets/capital-bike-share-locations" target="_blank">https://opendata.dc.gov/datasets/a1f7acf65795451d89f0a38565a975b3_5</a>
+            </p>
+            <p>
+                <strong>DC Open Data</strong>
+                <br /><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a>
+            </p>
+            <p>
+                <strong>DC Open Data Samples</strong>
+                <br /><a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">https://github.com/DCgov/opendatadc-starterkit</a>
+            </p>
+            <div id="logos" style="text-align: center">
+                <img src="images\WeAreWashintgonDCFinalLogo-Website.png" title="We are DC logo">
+            </div>
+        </div>
+    </div>
+    <script>
+
+        var bikeGeoJsonUrl = "https://opendata.arcgis.com/datasets/a1f7acf65795451d89f0a38565a975b3_5.geojson";
+
+        //Replace with your own token
+        L.mapbox.accessToken = "pk.eyJ1Ijoib2N0b2RjIiwiYSI6ImNpeWRjZm0yNDAwMDUzMGs1Z3JyZmd2NXQifQ.Y8a2TFYzj-5Oy3hTVb9cfw";
+
+        var map = L.mapbox.map('map', 'mapbox.light', {
+            zoomControl: false
+        })
+            .setView([38.90512740512037, -77.03433036804199], 15);
+
+        new L.Control.Zoom({
+            position: 'bottomleft'
+        }).addTo(map);
+
+        var marker = L.marker(new L.LatLng(38.904, -77.032), {
+            icon: L.mapbox.marker.icon({
+                "marker-color": "#0000ff",
+                "title": "where is sidewalk cafe?",
+                "marker-symbol": "pitch",
+                "marker-size": "large"
+            }),
+            draggable: true,
+            zIndexOffset: 999
+        });
+
+        var currentPosition;
+        var currentRadius = 0.5;
+
+        //Geocoder lookup
+        var geocoder = L.mapbox.geocoder('mapbox.places-v1');
+
+        //geolocation
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showPosition);
+            }
+        }
+
+        function showPosition(position) {
+            $('#findme').show();
+            $('#geolocation-prompt').hide();
+            currentPosition = [position.coords.latitude, position.coords.longitude];
+        }
+
+        function pointBuffer(pt, radius, units, resolution) {
+            var ring = []
+            var resMultiple = 360 / resolution;
+            for (var i = 0; i < resolution; i++) {
+                var spoke = turf.destination(pt, radius, i * resMultiple, units);
+                ring.push(spoke.geometry.coordinates);
+            }
+            if ((ring[0][0] !== ring[ring.length - 1][0]) && (ring[0][1] != ring[ring.length - 1][1])) {
+                ring.push([ring[0][0], ring[0][1]]);
+            }
+            return turf.polygon([ring])
+        }
+
+        $.get(bikeGeoJsonUrl, function (data) {
+
+            var fc = (data);
+
+            //find me functionality
+            $('#findme').on('click', function () {
+                marker.setLatLng(currentPosition);
+                map.setView(currentPosition, 15);
+                updateVenues();
+            });
+
+            //click-move functionality
+            map.on('click', function (e) {
+                marker.setLatLng([e.latlng.lat, e.latlng.lng]);
+                map.setView([e.latlng.lat, e.latlng.lng], 15);
+                updateVenues();
+            });
+
+            //input search functionality
+            $('fieldset input').keyup(function (event) {
+                var addrs = [];
+                var addrCoords = [];
+                var contents = $('fieldset input').val();
+                var url = 'https://api.tiles.mapbox.com/v4/geocode/mapbox.places/' + contents + '.json?access_token=' + L.mapbox.accessToken;
+
+                $.get(url, function (data) {
+                    $('.result').remove();
+                    data.features.forEach(function (result) {
+                        var place = result['place_name'];
+                        var reg = new RegExp(contents, "gi");
+
+                        var dcplace = "District of Columbia";
+                        if (place.includes(dcplace)) {
+                            place = place.replace(dcplace, "DC");
+                            place = place.replace(", United States", "");
+                            addrCoords.push(result.center);
+                            addrs.push(place);
+                            place = place.replace(reg, function (match) {
+                                return "<strong>" + match + "</strong>"
+                            });
+
+                            $('#search-results')
+                                .append('<div class="result keyline-bottom keyline-left keyline-right small">' + place + '</div>');
+                        }
+                    });
+                    $('.result').each(function (index) {
+                        var dcplace = "District of Columbia";
+
+                        $(this).on('click', function () {
+                            var coords = addrCoords[index];
+                            $('fieldset input').val(addrs[index]);
+
+                            map.setView([coords[1], coords[0]], 15);
+                            marker.setLatLng([coords[1], coords[0]]);
+                            marker.addTo(map);
+                            updateVenues();
+                        })
+                    })
+                })
+
+                if (event.keyCode == 13) {
+                    geocoder.query(contents, showMap);
+                    $('input').blur();
+                }
+
+            });
+
+            function showMap(err, data) {
+                map.setView([data.latlng[0], data.latlng[1]], 15);
+                marker.setLatLng([data.latlng[0], data.latlng[1]]);
+                updateVenues();
+            }
+
+            $('.leaflet-marker-draggable').on('mousewheel', function (event) {
+                var wheelDelta = event.originalEvent.wheelDeltaY;
+                if (currentRadius - wheelDelta * 0.001 >= 0.5 && currentRadius - wheelDelta * 0.001 <= 2) {
+                    currentRadius = currentRadius - wheelDelta * 0.001;
+                    updateVenues();
+                    var distancePhrase;
+                    switch (parseFloat(currentRadius.toFixed(2))) {
+                        case 0.50:
+                            distancePhrase = 'a half mile'
+                            break;
+                        case 1.00:
+                            distancePhrase = 'a mile'
+                            break;
+                        case 2.00:
+                            distancePhrase = 'two miles'
+                            break;
+                        default:
+                            distancePhrase = currentRadius.toFixed(2) + ' miles'
+                            break;
+                    }
+                    $('#distance').html(distancePhrase);
+                }
+
+                event.stopPropagation();
+                return false;
+            });
+
+            // get position, get radius, draw buffer, find within, calculate distances, find nearest, add to map
+            function updateVenues() {
+                $('path').remove();
+                $('.leaflet-marker-pane *').not(':first').remove();
+                var position = marker.getLatLng();
+                var point = turf.point(position.lng, position.lat);
+
+                //draw buffer
+                var bufferLayer = L.mapbox.featureLayer().addTo(map);
+                var buffer = pointBuffer(point, currentRadius, 'miles', 120);
+                buffer.properties = {
+                    "fill": "#00704A",
+                    "fill-opacity": 0.05,
+                    "stroke": "#00704A",
+                    "stroke-width": 2,
+                    "stroke-opacity": 0.5
+                };
+
+                bufferLayer.setGeoJSON(buffer);
+
+                var within = turf.featurecollection(fc.features.filter(function (shop) {
+                    if (turf.distance(shop, point, 'miles') <= currentRadius) return true;
+                }));
+                $('#milecount').html(within.features.length);
+
+                function mileConvert(miles) {
+                    if (miles <= 0.25) {
+                        return (miles * 5280).toFixed(0) + ' ft'
+                    } else {
+                        return miles.toFixed(2) + ' mi'
+                    }
+                }
+
+                within.features.forEach(function (feature) {
+                    var distance = parseFloat(turf.distance(point, feature, 'miles'));
+                    feature.properties["marker-color"] = "#6E6E6E";
+                    feature.properties["title"] = '<span>' + mileConvert(distance) + '</span><br>Address: ' + feature.properties["ADDRESS"] + '<br>Number of Bikes: ' + feature.properties["NUMBER_OF_BIKES"] + '<br>Empty Docks: ' + feature.properties["NUMBER_OF_EMPTY_DOCKS"] + '<br><strong>Click for walking route</strong>';
+                    feature.properties["marker-size"] = "medium";
+                    feature.properties["marker-symbol"] = "bicycle";
+                })
+
+                var nearest = turf.nearest(point, fc);
+                var nearestdist = parseFloat(turf.distance(point, nearest, 'miles'));
+
+                nearest.properties["marker-color"] = "#C73E3E";
+                nearest.properties["title"] = '<span>' + mileConvert(nearestdist) + '</span><br>Address: ' + nearest.properties["ADDRESS"] + '<br>Number of Bikes: ' + nearest.properties["NUMBER_OF_BIKES"] + '<br>Empty Docks: ' + nearest.properties["NUMBER_OF_EMPTY_DOCKS"] + '<br><strong>Click for walking route</strong>';
+                nearest.properties["marker-size"] = "large";
+                nearest.properties["marker-symbol"] = "bicycle";
+
+                var nearest_fc = L.mapbox.featureLayer().setGeoJSON(turf.featurecollection([within, nearest])).addTo(map);
+
+                // hover tooltips and click to zoom/route functionality
+                nearest_fc
+                    .on('mouseover', function (e) {
+                        e.layer.openPopup();
+                    })
+                    .on('mouseout', function (e) {
+                        e.layer.closePopup();
+                    })
+                    .on('click', function (e) {
+
+                        // assemble directions URL based on position of user and selected cafe
+                        var startEnd = position.lng + ',' + position.lat + ';' + e.latlng.lng + ',' + e.latlng.lat;
+                        var directionsAPI = 'https://api.tiles.mapbox.com/v4/directions/mapbox.walking/' + startEnd + '.json?access_token=' + L.mapbox.accessToken;
+
+                        // query for directions and draw the path
+                        $.get(directionsAPI, function (data) {
+                            var coords = data.routes[0].geometry.coordinates;
+                            coords.unshift([position.lng, position.lat]);
+                            coords.push([e.latlng.lng, e.latlng.lat]);
+                            var path = turf.linestring(coords, {
+                                "stroke": "#00704A",
+                                "stroke-width": 4,
+                                "opacity": 1
+                            });
+
+                            $('.distance-icon').remove();
+                            map.fitBounds(map.featureLayer.setGeoJSON(path).getBounds(), { padding: [100, 100] });
+                            window.setTimeout(function () {
+                                $('path').css('stroke-dashoffset', 0)
+                            }, 400);
+                            var duration = parseInt((data.routes[0].duration) / 60);
+                            if (duration < 100) {
+                                L.marker([coords[parseInt(coords.length * 0.5)][1], coords[parseInt(coords.length * 0.5)][0]], {
+                                    icon: L.divIcon({
+                                        className: 'distance-icon',
+                                        html: '<strong style="color:#00704A">' + duration + '</strong> <span class="micro">min</span>',
+                                        iconSize: [45, 23]
+                                    })
+                                })
+                                    .addTo(map);
+                            }
+                        })
+                    });
+            }
+            marker.on('drag', function () {
+                updateVenues();
+            });
+            updateVenues();
+        });
+
+        getLocation();
+        marker.addTo(map);
+
+        //open About This panel
+        function openAbout() {
+            $("#about").show();
+            return false;
+        }
+
+        //close About This panel
+        function closeAbout() {
+            $("#about").hide();
+            return false;
+        }
+    </script>
+</body>
+
+</html>

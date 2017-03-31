@@ -1,0 +1,426 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Description: This sample demonstrates how to use slider to filter data from DC Open Data and refresh cluster layers -->
+    <!-- Attribution: 
+    Mapbox GL JS sample, Url: https://www.mapbox.com/mapbox-gl-js/example/timeline-animation/
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/
+     -->
+    <meta charset='utf-8' />
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no'>
+    <title>Building Permits @ Washingtion, DC</title>    
+    <script src='https://api.mapbox.com/mapbox-gl-js/v0.29.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v0.29.0/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">    
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: "open_sanssemi", sans-serif;        
+    }
+    
+    #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+    }
+
+    a {
+        color: #fff;
+        font-family: 'open_sansregular', sans-serif;
+    }    
+    
+    .map-overlay {
+        font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        color: white;
+        position: absolute;
+        width: 25%;
+        bottom: 0;
+        left: 0;
+        padding: 10px;
+    }
+    
+    .map-overlay .map-overlay-inner {
+        background-color: #505050;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.90);
+        border-radius: 3px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .map-overlay input {
+        background-color: transparent;
+        display: inline-block;
+        width: 100%;
+        position: relative;
+        margin: 0;
+        cursor: ew-resize;
+    }
+    
+    .blocker {
+        color: #fff;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    #month {
+        display: none;
+    }
+    
+    #slider {
+        display: none;
+    }
+   
+     /*styling for title bar and about pop over */
+    #title {
+        color: #fff;
+        font-family: "open_sanssemibold", sans-serif;
+        padding: 3 0 0 4;
+        font-size: 24px;
+        line-height: 30px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;           
+    }
+    
+    .header {
+        position: relative;
+        padding: 15px 30px 25px 30px;
+        margin: auto;
+        z-index: 300;
+        background-color: rgb(12, 12, 12);
+        box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+        opacity: 0.8;
+    }
+    
+    #about {
+        padding: 10px 20px 20px 20px;
+        z-index: 4000;
+        position: absolute;
+        background-color: #505050;
+        color: white;
+        width: 700px;
+        left: 50%;
+        margin-left: -300px;
+        height: calc(100% - 200px);
+        top: 100px;
+        display: none;
+        overflow: hidden;
+        opacity: 0.95;
+    }
+    
+    #dismiss-about {
+        cursor: pointer;
+        font-size: 30px;
+        float: right;
+        margin-bottom: 10px;
+    }
+    
+    #inner {
+        width: 100%;
+        height: calc(100% - 60px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    </style>
+</head>
+<body>
+    <div id='map'></div>
+    <div class='header'>
+        <div id="title">Building Permits @ Washington, DC</div>
+        <div style="float:right">
+            <a style="color:rgb(206,206,206);font-size:14px; margin-right: 10px; " href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">This on Github</a>
+            <a style="color:rgb(206,206,206);font-size:14px; " href="javascript:void(0)" onclick="openAbout()">About This Map</a>
+        </div>
+    </div>
+    <div class='map-overlay top'>
+        <div class='map-overlay-inner'>
+            <div id="download" class='blocker strong large pad0'>
+                Downloading building permit data...
+            </div>
+            <label id='month'></label>
+            <input id='slider' type='range' min='0' max='11' step='1' value='0' />
+        </div>
+    </div>
+    <div id="about">
+        <a id="dismiss-about" onclick="closeAbout()">×</a>
+        <div id="inner">
+            <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">About this map
+            </p>
+            <p style="font-size:1.2em;">
+                This sample demonstrates some strategies for displaying large datasets from DC Open Data, including clustering and filtering.</p>
+            <p><strong>Instructions</strong>
+                <br/> Move slide bar to see the building permits in different months. Zoom in and/or click clustering point to check ATM banking info.</p>
+            <p><strong>Built with...</strong>
+                <br/> <a href="https://www.mapbox.com/mapbox-gl-js/api/">Mapbox GL JS</a>, <a href="https://jquery.com/">jQuery</a>, <a href="https://d3js.org/">D3</a></p>
+            <p><strong>Download Building Permits Data 2015 in GeoJSON</strong>
+                <br/><a href="https://opendata.arcgis.com/datasets/981c105beef74af38cc4090992661264_25.geojson">https://opendata.dc.gov/datasets/981c105beef74af38cc4090992661264_25.geojson</a></p>
+            <p><strong>View Building Permits Data 2015 on DC Open Data:</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com/datasets/building-permits-2015" target="_blank">https://opendata.dc.gov/datasets/981c105beef74af38cc4090992661264_25</a></p>
+            <p><strong>DC Open Data</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a></p>
+            <p><strong>DC Open Data Samples</strong>
+                <br/><a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">https://github.com/DCgov/opendatadc-starterkit</a></p>
+            <div id="logos" style="text-align: center">
+                <img src="images\WeAreWashintgonDCFinalLogo-Website.png" title="We are DC logo">
+            </div>
+        </div>
+    </div>
+    <script>
+    //Building Permit GeoJSON on DC Open Data           
+    var bldgGeoJsonUrl = "https://opendata.arcgis.com/datasets/981c105beef74af38cc4090992661264_25.geojson";
+    //Filter on building permit data
+    var whereClause = "?where=PERMIT_SUBTYPE_NAME=%27BUILDING%27";
+
+    var initMonth = 4; // Init month slider to May
+
+    //Current Month
+    var curMonth;
+    var months = [
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December'
+    ];
+
+    //Cluster color based on count
+    var clusterLyrBreaks = [
+        [150, '#D60F35'],
+        [120, '#e1ab48'],
+        [100, '#86039B'],
+        [80, '#db606a'],
+        [40, '#bb75c5'],
+        [20, '#FFC300'],
+        [0, '#FF4500']
+    ];
+
+    //Replace with your own token
+    mapboxgl.accessToken = "pk.eyJ1Ijoib2N0b2RjIiwiYSI6ImNpeWRjZm0yNDAwMDUzMGs1Z3JyZmd2NXQifQ.Y8a2TFYzj-5Oy3hTVb9cfw";
+
+    var downloadedData = {};
+
+    var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/octodc/ciygatic6002g2smfqiwbq1e4',
+        center: [-77.02920613678549, 38.912454441335],
+        zoom: 11.45
+    });
+
+    var popup = new mapboxgl.Popup({
+        closeOnClick: false,
+        closeButton: false
+    });
+
+    map.on('load', function() {
+        var start, end;
+        $.getJSON(bldgGeoJsonUrl + whereClause, function(data) {
+            if (!data || !data.features) {
+                $("#download").text("Data is not downloaded, please refresh page!");
+            } else {
+                downloadedData = data;
+
+                // init UIs
+                $('.blocker').remove();
+                $('#month').show();
+                $('#slider').show();
+                var slider = document.getElementById("slider");
+                slider.value = initMonth; 
+
+                //Prepare source data for clusters
+                data.features = data.features.map(function(d) {
+                    var tmp = Date.parse(d.properties.ISSUE_DATE);
+                    d.properties.month = new Date(tmp).getMonth();
+                    return d;
+                });
+
+                //add clusters to map using initial month's data
+                updateClusterByMonth(initMonth);
+                updateSliderLabel(initMonth);
+
+                //When slider changes, update clusters on map
+                document.getElementById('slider').addEventListener('input', function(e) {
+                    // Clear the popup if displayed.
+                    popup.remove();
+                    var month = parseInt(e.target.value, 10);
+                    updateSliderLabel(month);
+                    updateClusterByMonth(month);
+                });
+
+                //change mouse pointer to when mouse on non-cluster point
+                var layerIDs = ["non-cluster-markers"];
+                map.on('mousemove', function(e) {
+                    var features = map.queryRenderedFeatures(e.point, {
+                        layers: layerIDs
+                    });
+                    // Change the cursor style as a UI indicator.
+                    map.getCanvas().style.cursor = (features.length) ? 'pointer' : '';
+                });
+
+                //display popup when click on non-cluster point
+                map.on('click', function(e) {
+                    var features = map.queryRenderedFeatures(e.point, {
+                        layers: layerIDs
+                    });
+                    popup.remove();
+
+                    if (!features.length) {
+                        popup.remove();
+                        return;
+                    }
+
+                    if ((features.length == 1) && (!features[0].properties.point_count)) {
+                        var feature = features[0];
+                        var content = "Issue date: " + ((feature.properties.ISSUE_DATE.toLowerCase() !== "null") ? feature.properties.ISSUE_DATE.substring(0, 10) : "") + "<br>Subtype: " + ((feature.properties.PERMIT_SUBTYPE_NAME.toLowerCase() !== "null") ? feature.properties.PERMIT_SUBTYPE_NAME : "") + "<br>Address: " + ((feature.properties.FULL_ADDRESS.toLowerCase() !== "null") ? feature.properties.FULL_ADDRESS : "") + "<br>SSL: " + ((feature.properties.SSL.toLowerCase() !== "null") ? feature.properties.SSL : "") + "<br>Owner Name: " + ((feature.properties.OWNER_NAME.toLowerCase() !== "null") ? feature.properties.OWNER_NAME : "");
+                        // Use wrapped coordinates to ensure longitude is within (180, -180)
+                        var coords = feature.geometry.coordinates;
+                        var ll = new mapboxgl.LngLat(coords[0], coords[1]);
+                        var wrapped = ll.wrap();
+
+                        popup.setLngLat(wrapped)
+                            .setHTML(content)
+                            .addTo(map);
+                    }
+                });
+            }
+        });
+
+    });
+
+    //update month slider's label on UI
+    function updateSliderLabel(month) {
+        document.getElementById('month').textContent = months[month];
+    }
+
+    //update clusters on map when month changes
+    function updateClusterByMonth(month) {
+        if (month == curMonth) {
+            return;
+        } else {
+            
+            //We need to use add-remove layers to mannually update clusters here because setfilter on attributes does not work for cluster layers            
+            //Please refer to https://github.com/mapbox/mapbox-gl-js/issues/2626
+
+            if (map.getSource("building")) {
+                map.removeSource("building");
+            }
+
+            // Remove non-cluster layer
+            if (map.getLayer("non-cluster-markers")) {
+                map.removeLayer("non-cluster-markers");
+            }
+
+            //Remove existing cluster layers
+            for (var k = 0; k < clusterLyrBreaks.length; k++) {
+                if (map.getLayer("cluster-" + k)) {
+                    map.removeLayer("cluster-" + k);
+                }
+            }
+
+            // Remove existing label layer
+            if (map.getLayer("cluster-count")) {
+                map.removeLayer("cluster-count");
+            }
+        }
+        //remember the current month
+        curMonth = month;
+        var filteredData = {};
+        var selectedData = [];
+
+        $.each(downloadedData.features, function(i, d) {
+            if (d.properties.month == month) {
+                selectedData.push(d);
+            }
+        });
+
+        filteredData.features = selectedData;
+        filteredData.type = "FeatureCollection";
+        addClusterLayers(filteredData);
+    }
+
+    // add cluster layers to map
+    function addClusterLayers(filteredData) {
+        map.addSource('building', {
+            'type': 'geojson',
+            cluster: true,
+            clusterMaxZoom: 14, // Max zoom to cluster points on
+            clusterRadius: 100, // Radius of each cluster when clustering points (defaults to 50)
+            'data': filteredData
+        });
+
+        var layerID = "non-cluster-markers";
+        // add one layer for non-cluster points
+        map.addLayer({
+            "id": layerID,
+            "type": "circle",
+            "source": "building",
+            "paint": {
+                "circle-color": "#FF0000",
+                "circle-opacity": 0.5,
+                "circle-radius": 6,
+                "circle-stroke-width": 1,
+                "circle-stroke-color": "#FF0000"
+            },
+            "filter": ["!has", "point_count"]           
+        });
+
+        // add cluster layers using specified color
+        clusterLyrBreaks.forEach(function(layer, i) {
+            map.addLayer({
+                "id": "cluster-" + i,
+                "type": "circle",
+                "source": "building",
+                "paint": {
+                    "circle-color": layer[1],
+                    "circle-radius": 20 * (clusterLyrBreaks.length - i),
+                    "circle-opacity": 0.4,
+                    "circle-stroke-width": 1,
+                    "circle-stroke-color": layer[1]
+                },
+                "filter": i == 0 ? [">=", "point_count", layer[0]] : ["all", [">=", "point_count", layer[0]],
+                    ["<", "point_count", clusterLyrBreaks[i - 1][0]]
+                ]
+            });
+        });
+
+        // Add a layer for the clusters' count labels
+        map.addLayer({
+            "id": "cluster-count",
+            "type": "symbol",
+            "source": "building",
+            "layout": {
+                "text-field": "{point_count}",
+                "text-font": [
+                    "DIN Offc Pro Medium",
+                    "Arial Unicode MS Bold"
+                ],
+                "text-size": 12
+            }
+        });
+    }
+
+    //open About This panel
+    function openAbout() {
+        $("#about").show();
+        return false;
+    }
+
+    //close About This panel
+    function closeAbout() {
+        $("#about").hide();
+        return false;
+    }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,357 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <!-- Description: This sample demonstrates how to layout a list next to map, and add interaction between them -->
+    <!-- Attribution:
+    Mapbox JS sample, Url: https://www.mapbox.com/mapbox.js/example/v1.0.0/ 
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/
+    -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Public Schools @ Washington, DC</title>
+    <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,700' rel='stylesheet'>
+    <script src='https://api.mapbox.com/mapbox.js/v3.0.1/mapbox.js'></script>
+    <link href='https://api.mapbox.com/mapbox.js/v3.0.1/mapbox.css' rel='stylesheet' />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">    
+    <style>
+    body {
+        color: #404040;
+        font: 400 15px/22px 'Source Sans Pro', 'Helvetica Neue', Sans-serif;
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+    }
+    
+    * {
+        -webkit-box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        box-sizing: border-box;
+    }
+    
+    h1 {
+        font-size: 22px;
+        margin: 0;
+        font-weight: 400;
+    }
+    
+    a:hover {
+        color: #101010;
+    }
+    
+    .sidebar {
+        position: absolute;
+        width: 25%;
+        height: 100%;
+        top: 100px;
+        left: 0;
+        overflow: hidden;
+        border-right: 1px solid rgba(0, 0, 0, 0.25);
+    }
+    
+    .quiet {
+        color: #888;
+    }
+    
+    .map {
+        position: absolute;
+        left: 25%;
+        width: 75%;
+        top: 0;
+        bottom: 0;
+    }
+    
+    .listings {
+        height: 100%;
+        overflow: auto;
+        padding-bottom: 60px;
+    }
+    
+    .listings .item {
+        display: block;
+        border-bottom: 1px solid #eee;
+        padding: 10px;
+        text-decoration: none;
+    }
+    
+    .listings .item:last-child {
+        border-bottom: none;
+    }
+    
+    .listings .item .title {
+        display: block;
+        color: #00853e;
+        font-weight: 700;
+    }
+    
+    .listings .item .title small {
+        font-weight: 400;
+    }
+    
+    .listings .item.active .title,
+    .listings .item .title:hover {
+        color: #8cc63f;
+    }
+    
+    .listings .item.active {
+        background-color: #f8f8f8;
+    }
+    
+    ::-webkit-scrollbar {
+        width: 3px;
+        height: 3px;
+        border-left: 0;
+        background: rgba(0, 0, 0, 0.1);
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: none;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #00853e;
+        border-radius: 0;
+    }
+    
+    .clearfix {
+        display: block;
+    }
+    
+    .clearfix:after {
+        content: '.';
+        display: block;
+        height: 0;
+        clear: both;
+        visibility: hidden;
+    }
+    /* Marker tweaks */
+    
+    .leaflet-popup-close-button {
+        display: none;
+    }
+    
+    .leaflet-popup-content {
+        font: 400 15px/22px 'Source Sans Pro', 'Helvetica Neue', Sans-serif;
+        padding: 0;
+        width: 200px;
+    }
+    
+    .leaflet-popup-content-wrapper {
+        padding: 0;
+    }
+    
+    .leaflet-popup-content h3 {
+        background: #91c949;
+        color: #fff;
+        margin: 0;
+        display: block;
+        padding: 10px;
+        border-radius: 3px 3px 0 0;
+        font-weight: 700;
+        margin-top: -15px;
+    }
+    
+    .leaflet-popup-content div {
+        padding: 10px;
+    }
+    
+    .leaflet-container .leaflet-marker-icon {
+        cursor: pointer;
+    }
+
+    a {
+        color: #fff;      
+    }    
+    
+    /*styling for title bar and about pop over */
+    
+    #title {
+        color: #FFF;
+        font-family: "open_sanssemibold", sans-serif;
+        padding: 3px 0px 0px 4px;
+        font-size: 24px;
+        line-height: 30px;
+    }
+    
+    .header {
+        position: relative;
+        padding: 15px 30px 25px 30px;
+        margin: auto;
+        z-index: 300;
+        background-color: rgb(12, 12, 12);
+        box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+        opacity: 0.8;
+    }
+    
+    #about {
+        padding: 10px 20px 20px 20px;
+        z-index: 4000;
+        position: absolute;
+        background-color: #505050;
+        color: white;
+        width: 700px;
+        left: 50%;
+        margin-left: -300px;
+        height: calc(100% - 200px);
+        top: 100px;
+        display: none;
+        overflow: hidden;
+        opacity: 0.95;
+    }
+    
+    #dismiss-about {
+        cursor: pointer;
+        font-size: 30px;
+        float: right;
+        margin-bottom: 10px;
+        color: white;
+    }
+    
+    #inner {
+        width: 100%;
+        height: calc(100% - 60px);
+        overflow-y: auto;
+        font-family: "open_sanssemi", sans-serif;                
+    }
+    </style>
+</head>
+
+<body>
+    <div class='header'>
+        <div id="title">Public Schools @ Washington, DC</div>
+        <div style="float:right">
+            <a style="color:rgb(206,206,206);font-size:14px; margin-right: 10px;" href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">This on Github</a>
+            <a style="color:rgb(206,206,206);font-size:14px;" href="javascript:void(0)" onclick="openAbout()">About This Map</a>
+        </div>
+    </div>
+    <div class='sidebar'>
+        <div id='listings' class='listings'></div>
+    </div>
+    <div id='map' class='map'>
+    </div>
+    <div id="about">
+        <a id="dismiss-about" onclick="closeAbout()">×</a>
+        <div id="inner">
+            <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">About This Map
+            </p>
+            <p style="font-size: 1.2em;">This sample demonstrates how to create side layout next to map, and add interaction between data list item and map.</p>
+            <p><strong>Instructions</strong></span>                <br/> Click link on left to move map to selected school or select a school to display information.</p>
+            <p><strong>Built with...</strong>
+                <br/> Mapbox JS API, jQuery</p>
+            <p><strong>Download Public Schools data in GeoJSON</strong>
+                <br/><a href="https://opendata.arcgis.com/datasets/4ac321b2d409438ebd76a6569ad94034_5.geojson">https://opendata.dc.gov/datasets/4ac321b2d409438ebd76a6569ad94034_5.geojson</a></p>
+            <p><strong>View Public Schools data on DC Open Data</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com/datasets/public-schools" target="_blank">https://opendata.dc.gov/datasets/4ac321b2d409438ebd76a6569ad94034_5</a></p>
+            <p><strong>DC Open Data</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a></p>
+            <p><strong>DC Open Data Samples</strong>
+                <br/><a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">https://github.com/DCgov/opendatadc-starterkit</a></p>
+            <div id="logos" style="text-align: center">
+                <img src="images\WeAreWashintgonDCFinalLogo-Website.png" title="We are DC logo">
+            </div>
+        </div>
+    </div>
+    <script>
+    //data source from DC Open Data
+    var schoolGeoJsonUrl = "https://opendata.arcgis.com/datasets/4ac321b2d409438ebd76a6569ad94034_5.geojson";
+
+    //Update with your own token
+    L.mapbox.accessToken = 'pk.eyJ1Ijoib2N0b2RjIiwiYSI6ImNpeWRjZm0yNDAwMDUzMGs1Z3JyZmd2NXQifQ.Y8a2TFYzj-5Oy3hTVb9cfw';
+    var geoJsonArr = [];
+
+    var map = L.mapbox.map('map', 'mapbox.k8xv42t9', {
+            zoomControl: false
+        })
+        .setView([38.90512740512037, -77.03433036804199], 12);
+
+    new L.Control.Zoom({
+        position: 'bottomleft'
+    }).addTo(map);
+
+    var listings = document.getElementById('listings');
+    var schoolsLayer = L.mapbox.featureLayer().addTo(map);
+
+    function setActive(el) {
+        var siblings = listings.getElementsByTagName('div');
+        for (var i = 0; i < siblings.length; i++) {
+            siblings[i].className = siblings[i].className
+                .replace(/active/, '').replace(/\s\s*$/, '');
+        }
+
+        el.className += ' active';
+    }
+
+    $.getJSON(schoolGeoJsonUrl, function(data) {
+        geoJsonArr.push(data);
+        schoolsLayer.setGeoJSON(geoJsonArr);
+        //generate the listing on the left side
+        schoolsLayer.eachLayer(function(schoolFeature) {
+            var prop = schoolFeature.feature.properties;
+            var popup = '<h3>' + prop.NAME + '</h3><div>';
+
+            var listing = listings.appendChild(document.createElement('div'));
+            listing.className = 'item';
+
+            var link = listing.appendChild(document.createElement('a'));
+            link.href = '#';
+            link.className = 'title';
+
+            link.innerHTML = prop.NAME;
+
+            link.innerHTML += '<br /><small class="quiet">' + prop.ADDRESS + '</small>';
+            link.innerHTML += '<br /><small class="quiet">' + prop.PHONE + '</small>';
+            link.innerHTML += '<br /><small class="quiet">' + prop.FACUSE + '</small>';
+
+            popup += '<small class="quiet">' + prop.ADDRESS + '</small>';
+            popup += '<br /><small class="quiet">' + prop.PHONE + '</small>';
+            popup += '<br /><small class="quiet">' + prop.FACUSE + '</small>';
+
+
+            var details = listing.appendChild(document.createElement('div'));
+
+            link.onclick = function() {
+                setActive(listing);
+                // When a school link is clicked, animate the map to center
+                // its associated school and open its popup.
+                map.setView(schoolFeature.getLatLng(), 16);
+                schoolFeature.openPopup();
+                return false;
+            };
+
+            // Marker interaction
+            schoolFeature.on('click', function(e) {
+                // 1. center the map on the selected marker.
+                map.panTo(schoolFeature.getLatLng());
+
+                // 2. Set active the markers associated listing.
+                setActive(listing);
+            });
+
+            popup += '</div>';
+            schoolFeature.bindPopup(popup);
+
+            schoolFeature.setIcon(L.icon({
+                iconUrl: 'images/ranger-station-11.svg',
+                iconSize: [20, 20],
+                iconAnchor: [5.5, 0],
+                popupAnchor: [10, 10]
+            }));
+
+        });
+    });
+
+    //open About This panel
+    function openAbout() {
+        $("#about").show();
+        return false;
+    }
+
+    //close About This panel
+    function closeAbout() {
+        $("#about").hide();
+        return false;
+    }
+    </script>
+</body>
+
+</html>

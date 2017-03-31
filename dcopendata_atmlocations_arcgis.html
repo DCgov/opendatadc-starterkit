@@ -1,0 +1,401 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Description: This sample demonstrates how to use data from DC Open Data together with Esri ClusterLayer -->
+    <!-- Last Updated Date: 03/02/2016 -->
+    <!-- Attribution: 
+    Esri ArcGIS JS API Samples, Url: https://developers.arcgis.com/javascript/3/jssamples/layers_point_clustering.html 
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/
+    -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+    <title>ATM Banking @ Washington, DC</title>
+    <script src="https://js.arcgis.com/3.19/"></script>
+    <!-- Load the main Terraformer Core library for transforming GeoJSON -->
+    <script src="https://esri.github.io/geojson-layer-js/vendor/terraformer/terraformer.min.js"></script>
+    <!-- Load Terraformer ArcGIS Parser plugin library, which handles two way conversion between GeoJson and the ArcGIS Geometry format used by esri -->
+    <script src="https://esri.github.io/geojson-layer-js/vendor/terraformer-arcgis-parser/terraformer-arcgis-parser.min.js"></script>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.19/dijit/themes/tundra/tundra.css">
+    <link rel="stylesheet" href="https://js.arcgis.com/3.19/esri/css/esri.css">
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">
+    <style>
+    html,
+    body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        font-family: "open_sanssemi", sans-serif;
+    }
+
+    #map {
+        margin: 0;
+        padding: 0;
+    }
+
+    a {
+        color: #fff;
+        font-family: 'open_sansregular', sans-serif;
+    }
+
+    /* styling for search dijit */
+    #search-widget {
+        display: block;
+        position: absolute;
+        z-index: 2;
+        top: 100px;
+        right: 20px;
+        opacity: 0.8;
+    }
+
+    .arcgisSearch {
+        background-color: rgb(12, 12, 12);
+        border-radius: 5px;
+    }
+
+    .arcgisSearch .showNoResults .noResultsMenu {
+        background-color: #505050;
+    }
+
+    .arcgisSearch .searchClose,
+    .arcgisSearch .searchSpinner {
+        color: #fff;
+        background-color: #505050;
+    }
+
+    .arcgisSearch .noResultsBody {
+        background-color: #505050;
+    }
+
+    .arcgisSearch .searchBtn {
+        background-color: #0a0a0a;
+    }
+
+    .arcgisSearch .searchGroup .searchInput {
+        width: 15.625rem;
+        background-color: #0a0a0a;
+        color: white;
+    }
+
+    .arcgisSearch .searchGroup {
+        color: #fff;
+    }
+
+    .arcgisSearch .searchBtn:focus {
+        text-decoration: none;
+        background-color: #0a0a0a;
+    }
+
+    .arcgisSearch .searchIcon:hover {
+        color:#0a0a0a;
+    }
+
+    .searchBtn:hover .searchIcon {
+        color:#0a0a0a;
+    }
+
+    .searchBtn:focus .searchIcon {
+        color:#fff;
+    }
+
+    /*styling for title bar and about pop over */
+
+    #title {
+        color: #fff;
+        font-family: "open_sanssemibold", sans-serif;
+        padding: 3 0 0 4;
+        font-size: 24px;
+        line-height: 30px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .header {
+        position: relative;
+        padding: 15px 30px 25px 30px;
+        margin: auto;
+        z-index: 300;
+        background-color: rgb(12, 12, 12);
+        box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+        opacity: 0.8;
+    }
+
+    #about {
+        padding: 10px 20px 20px 20px;
+        z-index: 4000;
+        position: absolute;
+        background-color: #505050;
+        color: white;
+        width: 700px;
+        left: 50%;
+        margin-left: -300px;
+        height: calc(100% - 200px);
+        top: 100px;
+        display: none;
+        overflow: hidden;
+        opacity: 0.95;
+    }
+
+    #dismiss-about {
+        cursor: pointer;
+        font-size: 30px;
+        float: right;
+        margin-bottom: 10px;
+    }
+
+    #inner {
+        width: 100%;
+        height: calc(100% - 60px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    </style>
+    <script>
+
+
+    //ATM locations GeoJSON on DC Open Data
+    var atmGeoJsonUrl = "https://opendata.arcgis.com/datasets/5555b90602a94d9c85d63ee62a860c6e_31.geojson";
+    //Boundaries of District of Columbia 2012 election wards
+    var dcWardGeoJsonUrl = "https://opendata.arcgis.com/datasets/0ef47379cbae44e88267c01eaec2ff6e_31.geojson";
+    var dcLocatorUrl = "https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_APPS/DCGIS_MAR/GeocodeServer";
+
+    require([
+        "dojo/parser",
+        "dojo/ready",
+        "dojo/_base/array",
+        "dojo/dom-attr",
+        "esri/Color",
+        "dojo/dom-style",
+        "dojo/query",
+        "esri/map",
+        "esri/request",
+        "esri/graphic",
+        "esri/geometry/Extent",
+        "esri/symbols/SimpleMarkerSymbol",
+        "esri/symbols/SimpleFillSymbol",
+        "esri/symbols/PictureMarkerSymbol",
+        "esri/renderers/ClassBreaksRenderer",
+        "esri/layers/GraphicsLayer",
+        "esri/SpatialReference",
+        "esri/dijit/PopupTemplate",
+        "esri/geometry/Point",
+        "esri/geometry/webMercatorUtils",
+        "https://developers.arcgis.com/javascript/3/samples/layers_point_clustering/extras/ClusterLayer.js",
+        "https://esri.github.io/geojson-layer-js/src/geojsonlayer.js",
+        "esri/config",
+        "dojo/on",
+        "dojo/dom",
+        "dijit/layout/BorderContainer",
+        "dijit/layout/ContentPane",
+        "esri/tasks/locator",
+        "esri/dijit/Search",
+        "esri/InfoTemplate",
+        "dojo/domReady!"
+    ], function(
+        parser, ready, arrayUtils, domAttr, Color, domStyle, query,
+        Map, esriRequest, Graphic, Extent,
+        SimpleMarkerSymbol, SimpleFillSymbol, PictureMarkerSymbol, ClassBreaksRenderer,
+        GraphicsLayer, SpatialReference, PopupTemplate, Point, webMercatorUtils,
+        ClusterLayer, GeoJsonLayer, esriConfig, on, dom, BorderContainer, ContentPane, Locator, Search, InfoTemplate
+    ) {
+        var map;
+
+        ready(function() {
+            parser.parse();
+
+            var clusterLayer;
+            var popupOptions = {
+                "markerSymbol": new SimpleMarkerSymbol("circle", 20, null, new Color([0, 0, 0, 0.25])),
+                "marginLeft": "20",
+                "marginTop": "20"
+            };
+            map = new Map("map", {
+                basemap: "gray",
+                center: [-77.0252, 38.8929],
+                zoom: 5
+            });
+
+            map.on("load", function() {
+                addGeoJsonLayer(dcWardGeoJsonUrl);
+                // hide the popup's ZoomTo link as it doesn't make sense for cluster features
+                domStyle.set(query("a.action.zoomTo")[0], "display", "none");
+
+                var ATMBanking = esriRequest({
+                    url: atmGeoJsonUrl,
+                    handleAs: "json"
+                });
+                ATMBanking.then(addClusters, error);
+            });
+
+            var dcSearch = new Search({
+                sources: [{
+                    //Pass in the custom locator to the sources
+                    locator: new Locator(dcLocatorUrl),
+                    singleLineFieldName: "SingleLine",
+                    outFields: ["*"],
+                    name: "DCGIS_MAR",
+                    placeholder: "Input an Address in DC",
+                    highlightSymbol: new PictureMarkerSymbol("https://js.arcgis.com/3.19/esri/dijit/Search/images/search-pointer.png", 36, 36).setOffset(9, 18),
+                    //Create an InfoTemplate
+                    infoTemplate: new InfoTemplate("Address", " ${Match_addr}"),
+                    enableSuggestions:false
+                }],
+                map: map,
+                value: "",
+                zoomScale: 10000
+            }, "search-widget");
+            dcSearch.startup();
+
+            on(dom.byId("about-map"), "click", function() {
+                domStyle.set("about", "display", "block");
+                return false;
+            });
+
+            on(dom.byId("dismiss-about"), "click", function() {
+                domStyle.set("about", "display", "none");
+                return false;
+            });
+
+            function addClusters(resp) {
+                var atmInfo = {};
+                var wgs = new SpatialReference({
+                    "wkid": 3857
+                });
+                atmInfo.data = arrayUtils.map(resp.features, function(p) {
+                    var latlng = new Point(parseFloat(p.geometry.coordinates[0]), parseFloat(p.geometry.coordinates[1]), wgs);
+                    var webMercator = webMercatorUtils.geographicToWebMercator(latlng);
+                    var attributes = {
+                        "Name": p.properties.NAME,
+                        "Address": p.properties.ADDRESS
+                    };
+                    return {
+                        "x": webMercator.x,
+                        "y": webMercator.y,
+                        "attributes": attributes
+                    };
+                });
+
+                // popupTemplate to work with attributes specific to this dataset
+                var popupTemplate = new PopupTemplate({
+                    "title": "",
+                    "fieldInfos": [{
+                        "fieldName": "Name",
+                        visible: true,
+                        "label": "Name:"
+                    }, {
+                        "fieldName": "Address",
+                        "label": "Location:",
+                        visible: true
+                    }]
+                });
+
+                // cluster layer that uses OpenLayers style clustering
+                clusterLayer = new ClusterLayer({
+                    "data": atmInfo.data,
+                    "distance": 30,
+                    "id": "clusters",
+                    "labelColor": "#fff",
+                    "labelOffset": 10,
+                    "resolution": map.extent.getWidth() / map.width,
+                    "singleColor": "#888",
+                    "singleTemplate": popupTemplate
+                });
+                var defaultSym = new SimpleMarkerSymbol().setSize(4);
+                var renderer = new ClassBreaksRenderer(defaultSym, "clusterCount");
+
+                var picBaseUrl = "https://static.arcgis.com/images/Symbols/Shapes/";
+                var blue = new PictureMarkerSymbol(picBaseUrl + "BluePin1LargeB.png", 32, 32).setOffset(0, 15);
+                var green = new PictureMarkerSymbol(picBaseUrl + "GreenPin1LargeB.png", 64, 64).setOffset(0, 15);
+                var red = new PictureMarkerSymbol(picBaseUrl + "RedPin1LargeB.png", 72, 72).setOffset(0, 15);
+                renderer.addBreak(0, 1, blue);
+                renderer.addBreak(1, 100, green);
+                renderer.addBreak(100, 1001, red);
+
+                clusterLayer.setRenderer(renderer);
+                map.addLayer(clusterLayer);
+
+                // close the info window when the map is clicked
+                map.on("click", cleanUp);
+                // close the info window when esc is pressed
+                map.on("key-down", function(e) {
+                    if (e.keyCode === 27) {
+                        cleanUp();
+                    }
+                });
+            }
+
+            function cleanUp() {
+                map.infoWindow.hide();
+                clusterLayer.clearSingles();
+            }
+
+            function error(err) {
+                console.error("something failed: ", err);
+            }
+
+            function addGeoJsonLayer(url) {
+                // Create a GeoJsonLayer layer
+                var geoJsonLayer = new GeoJsonLayer({
+                    url: url,
+                    maxdraw: 10000
+                });
+
+                // Zoom to layer
+                geoJsonLayer.on("update-end", function(e) {
+                    map.setExtent(e.target.extent.expand(1.2));
+                });
+                // Add to map
+                map.addLayer(geoJsonLayer);
+
+            }
+        });
+    });
+    </script>
+</head>
+
+<body>
+    <div data-dojo-type="dijit/layout/BorderContainer" data-dojo-props="design:'headline',gutters:false" style="width: 100%; height: 100%; margin: 0;">
+        <div id="map" data-dojo-type="dijit/layout/ContentPane" data-dojo-props="region:'center'">
+        </div>
+        <div class='header'>
+            <div id="title">ATM Banking @ Washington, DC</div>
+            <div style="float:right">
+                <a style="color:rgb(206,206,206);font-size:14px;margin-right: 10px;" href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">This on Github</a>
+                <a id="about-map" style="color:rgb(206,206,206);font-size:14px; " href="javascript:void(0)">About This Map</a>
+            </div>
+        </div>
+        <div id="search-widget"></div>
+        <div id="about">
+            <a id="dismiss-about">×</a>
+            <div id="inner">
+                <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">About this map
+                </p>
+                <p style="font-size: 1.2em;">
+                    This sample demonstrates how to use a geojson data source from DC Open Data with Esri ArcGIS JavaScript API ClusterLayer.
+                </p>
+                <p><strong>Instructions</strong>
+                    <br/> The larger symbols show clusters, while the smaller ones show individual ATM locations. Click either to get details on a pop-up.</p>
+                <p><strong>Built with...</strong>
+                    <br/> <a href="https://dojotoolkit.org/">Dojo</a>, <a href="https://developers.arcgis.com/javascript/">ArcGIS JS API</a></p>
+                <p><strong>Download ATM Banking Data in GeoJSON</strong>
+                    <br/><a href="https://opendata.arcgis.com/datasets/5555b90602a94d9c85d63ee62a860c6e_31.geojson">https://opendata.dc.gov/datasets/5555b90602a94d9c85d63ee62a860c6e_31.geojson</a></p>
+                <p><strong>View ATM Banking Data on DC Open Data</strong>
+                    <br/><a href="https://working-dcgis.opendata.arcgis.com/datasets/atm-banking" target="_blank">https://opendata.dc.gov/datasets/5555b90602a94d9c85d63ee62a860c6e_31</a></p>
+                <p><strong>DCGIS Master Address Repository Geocoder</strong>
+                    <br/><a href="https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_APPS/DCGIS_MAR/GeocodeServer" target="_blank">https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_APPS/DCGIS_MAR/GeocodeServer</a></p>
+                <p><strong>DC Open Data</strong>
+                    <br/><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a></p>
+                <p><strong>Github Repository</strong>
+                    <br/><a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank"https://github.com/DCgov/opendatadc-starterkit</a></p>
+                <br/>
+                <div id="logos" style="text-align: center">
+                    <img src="images\WeAreWashintgonDCFinalLogo-Website.png" title="We are DC logo">
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

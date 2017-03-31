@@ -1,0 +1,301 @@
+﻿<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Description: This sample demonstrates how to create a colorful interactive choropleth map of census tracts using data from DC Open Data with the help of Esri ArcGIS JS API -->
+    <!-- Attribution:
+    Esri ArcGIS JS API Samples, Url: https://developers.arcgis.com/javascript/3/jssamples/fl_hover.html
+    Styling inspired by Esri Story Map: https://storymaps.esri.com/stories/2016/top-stories/
+    -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Census Tracts by Median Income - 2010 @ Washington, DC</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/3.19/dijit/themes/tundra/tundra.css">
+    <link rel="stylesheet" href="https://js.arcgis.com/3.19/esri/css/esri.css">
+    <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">
+    <style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: "open_sanssemi", sans-serif;
+    }
+    
+    #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+    }
+    
+    a {
+        color: #fff;
+        font-family: 'open_sansregular', sans-serif;
+    }
+    
+    .esriSimpleSliderTL {
+        top: 100px;
+    }
+    
+    #info {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        padding: 10px;
+        background-color: rgba(73, 73, 73, 0.8);
+        font-size: 14px;
+        font-family: "open_sanssemibold", sans-serif;
+        width: 200px;
+        text-align: center;
+        border-radius: 0 10px 0 0;
+        color: white;
+    }
+    </style>
+    <style>
+    /*styling for title bar and about pop over */
+    
+    #title {
+        color: #fff;
+        font-family: "open_sanssemibold", sans-serif;
+        padding: 3 0 0 4;
+        font-size: 24px;
+        line-height: 30px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .header {
+        position: relative;
+        padding: 15px 30px 25px 30px;
+        margin: auto;
+        z-index: 500;
+        background-color: rgb(12, 12, 12);
+        box-shadow: 0 3px 5px 0 rgba(0, 0, 0, .75);
+        opacity: 0.8;
+    }
+    
+    #about {
+        padding: 10px 20px 20px 20px;
+        z-index: 4000;
+        position: absolute;
+        background-color: #505050;
+        color: white;
+        width: 700px;
+        left: 50%;
+        margin-left: -300px;
+        height: calc(100% - 200px);
+        top: 100px;
+        display: none;
+        overflow: hidden;
+        opacity: 0.95;
+    }
+    
+    #dismiss-about {
+        cursor: pointer;
+        font-size: 30px;
+        float: right;
+        margin-bottom: 10px;
+    }
+    
+    #inner {
+        width: 100%;
+        height: calc(100% - 60px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    </style>
+    <script src="https://js.arcgis.com/3.19/"></script>
+    <!-- Load the main Terraformer Core library for transforming GeoJSON -->
+    <script src="https://esri.github.io/geojson-layer-js/vendor/terraformer/terraformer.min.js"></script>
+    <!-- Load Terraformer ArcGIS Parser plugin library, which handles two way conversion between GeoJson and the ArcGIS Geometry format used by esri -->
+    <script src="https://esri.github.io/geojson-layer-js/vendor/terraformer-arcgis-parser/terraformer-arcgis-parser.min.js"></script>
+    <script>
+    var map;
+
+    //Data source from DC Open Data
+    var censusGeoJsonUrl = "https://opendata.arcgis.com/datasets/6969dd63c5cb4d6aa32f15effb8311f3_8.geojson";
+
+    require([
+        "esri/map", "esri/layers/FeatureLayer",
+        "esri/dijit/InfoWindow", "esri/InfoTemplate",
+        "esri/symbols/SimpleFillSymbol", "esri/renderers/SimpleRenderer",
+        "https://esri.github.io/geojson-layer-js/src/geojsonlayer.js",
+        "esri/symbols/SimpleLineSymbol",
+        "esri/Color", "esri/lang", "esri/graphic", "dojo/dom-style",
+        "esri/dijit/Legend",
+        "esri/renderers/ClassBreaksRenderer",
+        "dijit/TooltipDialog", "dijit/popup",
+        "dojo/dom-construct", "dojo/dom-class",
+        "dojo/number", "dojo/dom-attr", "dojo/on", "dojo/dom", "dojo/domReady!"
+    ], function(
+        Map, FeatureLayer,
+        InfoWindow, InfoTemplate,
+        SimpleFillSymbol, SimpleRenderer,
+        GeoJsonLayer, SimpleLineSymbol, Color, esriLang, Graphic, domStyle,
+        Legend,
+        ClassBreaksRenderer,
+        TooltipDialog, dijitPopup,
+        domConstruct, domClass,
+        number, domAttr, on, dom, parser
+    ) {
+
+        // Use the info window instead of the popup.
+        var infoWindow = new InfoWindow(null, domConstruct.create("div"));
+        infoWindow.startup();
+
+        map = new Map("map", {
+            basemap: "gray",
+            center: [-122.5, 45.5],
+            infoWindow: infoWindow,
+            zoom: 5
+        });
+        map.infoWindow.resize(275, 275);
+
+        var symbol = new SimpleFillSymbol();
+        symbol.setColor(new Color([150, 150, 150, 0.5]));
+
+        var renderer = new ClassBreaksRenderer(symbol, "FAGI_MEDIAN_2010");
+        renderer.addBreak(0, 20000, new SimpleFillSymbol().setColor(new Color([56, 168, 0, 0.5])));
+        renderer.addBreak(20000, 30000, new SimpleFillSymbol().setColor(new Color([139, 209, 0, 0.5])));
+        renderer.addBreak(30000, 50000, new SimpleFillSymbol().setColor(new Color([255, 255, 0, 0.5])));
+        renderer.addBreak(50000, 80000, new SimpleFillSymbol().setColor(new Color([255, 128, 0, 0.5])));
+        renderer.addBreak(80000, 100000, new SimpleFillSymbol().setColor(new Color([255, 0, 0, 0.5])));
+        renderer.addBreak(100000, "Higher", new SimpleFillSymbol().setColor(new Color([153, 0, 79, 0.5])));
+
+        //featureLayer derived from ArcGIS Server map service Url
+        var featureLayer = new FeatureLayer("https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Demographic_WebMercator/MapServer/8", {
+            mode: FeatureLayer.MODE_SNAPSHOT,
+            outFields: ["*"]
+        });
+
+        featureLayer.setRenderer(renderer);
+
+        var legend = new Legend({
+            map: map,
+            layerInfos: [{
+                title: "Family Meidan Income",
+                layer: featureLayer
+            }]
+        }, "legend");
+
+        function addGeoJsonLayer(url) {
+            // A GeoJsonLayer derived from GeoJSON Url
+            var geoJsonLayer = new GeoJsonLayer({
+                url: url,
+                maxdraw: 10000
+            });
+
+            geoJsonLayer._simplePolygonSym = new SimpleFillSymbol("solid", new SimpleLineSymbol("solid", new Color([255, 0, 0, 0.9]), 1), new Color([150, 255, 150, 0.0]));
+
+            // Zoom to layer
+            geoJsonLayer.on("update-end", function(e) {
+                map.setExtent(e.target.extent.expand(1.2));
+            });
+            // Add to map
+            map.addLayer(geoJsonLayer);
+        }
+
+        map.infoWindow.resize(245, 125);
+
+        dialog = new TooltipDialog({
+            id: "tooltipDialog",
+            style: "position: absolute; width: 250px; font: normal normal normal 10pt Helvetica;z-index:100"
+        });
+        dialog.startup();
+
+        var highlightSymbol = new SimpleFillSymbol(
+            SimpleFillSymbol.STYLE_SOLID,
+            new SimpleLineSymbol(
+                SimpleLineSymbol.STYLE_SOLID,
+                new Color([255, 0, 0]), 3
+            ),
+            new Color([125, 125, 125, 0.35])
+        );
+
+        //listen for when the onMouseOver event fires on the GraphicsLayer
+        //when fired, create a new graphic with the geometry from the event.graphic and add it to the maps graphics layer
+        featureLayer.on("mouse-over", function(evt) {
+            var t = "<b>Census Tract: ${TRACT}</b><hr>" + "<b>Population: </b>${P0010001:NumberFormat}<br>" + "<b>Area (Sq. Mi.): </b>${SQ_MILES:NumberFormat}<br>" + "<b>2010 Median Income: </b>$${FAGI_MEDIAN_2010:NumberFormat}";
+
+            var content = esriLang.substitute(evt.graphic.attributes, t);
+            var highlightGraphic = new Graphic(evt.graphic.geometry, highlightSymbol);
+            map.graphics.add(highlightGraphic);
+
+            dialog.setContent(content);
+
+            domStyle.set(dialog.domNode, "opacity", 1);
+            dijitPopup.open({
+                popup: dialog,
+                x: evt.pageX,
+                y: evt.pageY
+            });
+        });
+
+        function closeDialog() {
+            map.graphics.clear();
+            dijitPopup.close(dialog);
+        }
+
+        map.on("load", function() {
+            addGeoJsonLayer(censusGeoJsonUrl);
+
+            map.addLayer(featureLayer);
+            legend.startup();
+
+            map.graphics.enableMouseEvents();
+            map.graphics.on("mouse-out", closeDialog);
+
+        });
+
+        on(dom.byId("aboutTheMap"), "click", function() {
+            domStyle.set("about", "display", "block");
+            return false;
+        });
+
+        on(dom.byId("dismiss-about"), "click", function() {
+            domStyle.set("about", "display", "none");
+            return false;
+        });
+    });
+    </script>
+</head>
+
+<body class="tundra">
+    <div id="map">
+    </div>
+    <div class='header'>
+        <div id="title">Census Tracts by Median Income - 2010 @ Washington, DC</div>
+        <div id="sourceUrls" style="float:right">
+            <a id="dcOpenDataUrl" style="color:rgb(206,206,206);font-size:14px;margin-right: 10px;" href="https://github.com/DCgov/opendatadc-starterkit">This on Github</a>
+            <a id="aboutTheMap" style="color:rgb(206,206,206); font-size:14px; " href="javascript:void(0)">About This Map</a>
+        </div>
+    </div>
+    <div id="info">
+        <div id="legend"></div>
+    </div>
+    <div id="about">
+        <a id="dismiss-about">×</a>
+        <div id="inner">
+            <p style="font-size: 1.4em; text-transform: uppercase; text-align: center">About this map
+            </p>
+            <p style="font-size: 1.2em;">This sample demonstrates how to create a colorful interactive choropleth map of census tracts using data from DC Open Data with the help of Esri ArcGIS JS API.</p>
+            <p><strong>Instructions</strong>
+                <br/> Mouse over on census tracts for more information.</p>
+            <p><strong>Built with...</strong>
+                <br/> <a href="https://dojotoolkit.org/">Dojo</a>, <a href="https://developers.arcgis.com/javascript/">ArcGIS JS API</a></p>
+            <p><strong>Download Census Tracts - 2010 data in GeoJSON</strong>
+                <br/><a href="https://opendata.arcgis.com/datasets/6969dd63c5cb4d6aa32f15effb8311f3_8.geojson" target="_blank">https://opendata.dc.gov/datasets/6969dd63c5cb4d6aa32f15effb8311f3_8.geojson</a></p>
+            <p><strong>View Census Tracts - 2010 data on DC Open Data</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com/datasets/census-tracts-2010" target="_blank">https://opendata.dc.gov/datasets/6969dd63c5cb4d6aa32f15effb8311f3_8</a></p>
+            <p><strong>DC Open Data</strong>
+                <br/><a href="https://working-dcgis.opendata.arcgis.com" target="_blank">https://opendata.dc.gov</a></p>
+            <p><strong>DC Open Data Samples</strong>
+                <br/><a href="https://github.com/DCgov/opendatadc-starterkit" target="_blank">https://github.com/DCgov/opendatadc-starterkit</a></p>
+            <div id="logos" style="text-align: center">
+                <img src="images\WeAreWashintgonDCFinalLogo-Website.png" title="We are DC logo">
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

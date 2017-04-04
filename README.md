@@ -45,5 +45,5 @@ See [LICENSE.md](../master/LICENSE.md)
 
 etc
 ----------
-Other examples of interesting and effective uses of data on working-dcgis.opendata.arcgis.com:
+Other examples of interesting and effective uses of data on http://opendata.dc.gov:
 - Temporal visualization, distance selection, and summarizing crime data using Esri tools https://github.com/ajturner/dc-crime 

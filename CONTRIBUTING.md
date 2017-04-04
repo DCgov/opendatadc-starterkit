@@ -6,7 +6,7 @@ Before contributing, we encourage you to read our CONTRIBUTING guide (you are he
 
 ## Ways to Contribute
 
-**The DC Data Team under the management of the Chief Data Officer manages all updates, bugs, and feature additions via GitHub's public [issue tracker](issues) in this repository.** 
+**The DC Data Team under the management of the Chief Data Officer manages all updates, bugs, and feature additions via GitHub's public [issue tracker](https://github.com/DCgov/opendatadc-starterkit/issues) in this repository.** 
 
 If you do not already have a GitHub account, you can [sign up for GitHub here](https://github.com/). Pull requests will be reviewed and accepted. In the spirit of open source software, everyone is encouraged to help improve this project. Here are some ways you can contribute:
 - by reporting bugs as issues
@@ -16,7 +16,7 @@ If you do not already have a GitHub account, you can [sign up for GitHub here](h
 - by closing issues
 
 #### Submit Great Issues
-* Before submitting a new [issue](issues), check to make sure [a similar issue isn't already open](issues?q=is%3Aissue+is%3Aopen). If one is, contribute to that issue thread with your feedback.
+* Before submitting a new [issue](https://github.com/DCgov/opendatadc-starterkit/edit/master/CONTRIBUTING.md), check to make sure [a similar issue isn't already open](https://github.com/DCgov/opendatadc-starterkit/edit/master/CONTRIBUTING.md?q=is%3Aissue+is%3Aopen). If one is, contribute to that issue thread with your feedback.
 * When submitting a bug report, please try to provide as much detail as possible, i.e. a screenshot or [gist](https://gist.github.com/) that demonstrates the problem, the technology you are using, and any relevant links. 
 
 #### Ready for your Help 

@@ -306,12 +306,12 @@
                 var renderer = new ClassBreaksRenderer(defaultSym, "clusterCount");
 
                 var picBaseUrl = "https://static.arcgis.com/images/Symbols/Shapes/";
-                var blue = new PictureMarkerSymbol(picBaseUrl + "BluePin1LargeB.png", 32, 32).setOffset(0, 15);
-                var green = new PictureMarkerSymbol(picBaseUrl + "GreenPin1LargeB.png", 64, 64).setOffset(0, 15);
-                var red = new PictureMarkerSymbol(picBaseUrl + "RedPin1LargeB.png", 72, 72).setOffset(0, 15);
-                renderer.addBreak(0, 1, blue);
-                renderer.addBreak(1, 100, green);
-                renderer.addBreak(100, 1001, red);
+                var blueSmall = new PictureMarkerSymbol(picBaseUrl + "BluePin1LargeB.png", 32, 32).setOffset(0, 15);
+                var blueMedium = new PictureMarkerSymbol(picBaseUrl + "BluePin1LargeB.png", 64, 64).setOffset(0, 15);
+                var blueLarge = new PictureMarkerSymbol(picBaseUrl + "BluePin1LargeB.png", 72, 72).setOffset(0, 15);
+                renderer.addBreak(0, 1, blueSmall);
+                renderer.addBreak(1, 100, blueMedium);
+                renderer.addBreak(100, 1001, blueLarge);
 
                 clusterLayer.setRenderer(renderer);
                 map.addLayer(clusterLayer);

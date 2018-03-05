@@ -1,0 +1,5 @@
+matplotlib==2.0.2
+openpyxl==2.4.8
+pandas==0.20.3
+seaborn==0.8
+xlrd==1.1.0

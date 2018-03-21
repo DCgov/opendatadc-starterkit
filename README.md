@@ -6,7 +6,7 @@ This repo is a collection of samples designed to demonstrate how developers can 
 About the Samples
 ----------
 The samples... 
-- require only basic web development skills.
+- require only basic developer or analyst skills and tools.
 - are easily hacked by simply changing data sources, titles, and making other minor configuration changes.
 - have an understated but pleasing look-and-feel.
 - show how you can consume data on [Open Data DC](http://opendata.dc.gov) in lots of clients: esri, D3, mapbox, leaflet, google maps

@@ -10,8 +10,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
     <title>Census Tracts by Median Income - 2010 @ Washington, DC</title>
-    <link rel="stylesheet" href="https://js.arcgis.com/3.19/dijit/themes/tundra/tundra.css">
-    <link rel="stylesheet" href="https://js.arcgis.com/3.19/esri/css/esri.css">
+    <link rel="stylesheet" href="https://js.arcgis.com/3.27/dijit/themes/tundra/tundra.css">
+    <link rel="stylesheet" href="https://js.arcgis.com/3.27/esri/css/esri.css">
     <link rel="shortcut icon" type="image/x-icon" href="https://dc.gov/sites/default/files/favicon_0.ico">
     <style>
     body {
@@ -155,11 +155,36 @@
         symbol.setColor(new Color([150, 150, 150, 0.5]));
 
         var renderer = new ClassBreaksRenderer(symbol, "FAGI_MEDIAN_2010");
-        renderer.addBreak(0, 20000, new SimpleFillSymbol().setColor(new Color([56, 168, 0, 0.5])));
-        renderer.addBreak(20000, 30000, new SimpleFillSymbol().setColor(new Color([139, 209, 0, 0.5])));
-        renderer.addBreak(30000, 50000, new SimpleFillSymbol().setColor(new Color([255, 255, 0, 0.5])));
-        renderer.addBreak(50000, 80000, new SimpleFillSymbol().setColor(new Color([255, 128, 0, 0.5])));
-        renderer.addBreak(80000, 100000, new SimpleFillSymbol().setColor(new Color([255, 0, 0, 0.5])));
+        renderer.addBreak({
+			minValue: 0, 
+			maxValue: 20000, 
+			symbol: new SimpleFillSymbol().setColor(new Color([56, 168, 0, 0.5])),
+			label: "0 - 20,000"
+		});
+        renderer.addBreak({
+			minValue: 20000, 
+			maxValue: 30000, 
+			symbol: new SimpleFillSymbol().setColor(new Color([139, 209, 0, 0.5])),
+			label: "20,000 - 30,000"
+		});
+        renderer.addBreak({
+			minValue: 30000, 
+			maxValue: 50000, 
+			symbol: new SimpleFillSymbol().setColor(new Color([255, 255, 0, 0.5])),
+			label: "30,000 - 50,000"
+		});
+        renderer.addBreak({
+			minValue: 50000, 
+			maxValue: 80000, 
+			symbol: new SimpleFillSymbol().setColor(new Color([255, 128, 0, 0.5])),
+			label: "50,000 - 80,000"
+		});
+        renderer.addBreak({
+			minValue: 80000, 
+			maxValue: 100000, 
+			symbol: new SimpleFillSymbol().setColor(new Color([255, 0, 0, 0.5])),
+			label: "80,000 - 100,000"
+		});
         renderer.addBreak({
 			minValue: 100000, 
 			maxValue: Infinity, 

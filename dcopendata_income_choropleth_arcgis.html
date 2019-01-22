@@ -160,7 +160,12 @@
         renderer.addBreak(30000, 50000, new SimpleFillSymbol().setColor(new Color([255, 255, 0, 0.5])));
         renderer.addBreak(50000, 80000, new SimpleFillSymbol().setColor(new Color([255, 128, 0, 0.5])));
         renderer.addBreak(80000, 100000, new SimpleFillSymbol().setColor(new Color([255, 0, 0, 0.5])));
-        renderer.addBreak(100000, "Higher", new SimpleFillSymbol().setColor(new Color([153, 0, 79, 0.5])));
+        renderer.addBreak({
+			minValue: 100000, 
+			maxValue: Infinity, 
+			symbol: new SimpleFillSymbol().setColor(new Color([153, 0, 79, 0.5])),
+			label: "> 100,000"
+		});
 
         //featureLayer derived from ArcGIS Server map service Url
         var featureLayer = new FeatureLayer("https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Demographic_WebMercator/MapServer/8", {

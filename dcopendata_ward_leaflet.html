@@ -142,14 +142,14 @@
     });
 
     //Create map and load basemap tile layer
-    L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
-        attribution: 'Map data &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors, ' +
-        '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
-        'Imagery © <a href="https://mapbox.com">Mapbox</a>',
-        id: 'mapbox.streets',
+    L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+        attribution: '© <a href="https://www.mapbox.com/about/maps/">Mapbox</a> © <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> <strong><a href="https://www.mapbox.com/map-feedback/" target="_blank">Improve this map</a></strong>',
+        id: 'mapbox/light-v10',
         maxZoom: 17,
         minZoom: 9,
-        accessToken: accessToken
+        accessToken: accessToken,
+        tileSize: 512,
+        zoomOffset: -1
     }).addTo(map);
 
     // Add our zoom control manually where we want to

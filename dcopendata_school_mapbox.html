@@ -259,10 +259,11 @@
     L.mapbox.accessToken = 'pk.eyJ1Ijoib2N0b2RjIiwiYSI6ImNpeWRjZm0yNDAwMDUzMGs1Z3JyZmd2NXQifQ.Y8a2TFYzj-5Oy3hTVb9cfw';
     var geoJsonArr = [];
 
-    var map = L.mapbox.map('map', 'mapbox.k8xv42t9', {
+    var map = L.mapbox.map('map', null, {
             zoomControl: false
         })
-        .setView([38.90512740512037, -77.03433036804199], 12);
+        .setView([38.90512740512037, -77.03433036804199], 12)
+        .addLayer(L.mapbox.styleLayer('mapbox://styles/octodc/ck9spzwy902yw1io63vdywmfd'));
 
     new L.Control.Zoom({
         position: 'bottomleft'

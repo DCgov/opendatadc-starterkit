@@ -274,10 +274,11 @@
         //Replace with your own token
         L.mapbox.accessToken = "pk.eyJ1Ijoib2N0b2RjIiwiYSI6ImNpeWRjZm0yNDAwMDUzMGs1Z3JyZmd2NXQifQ.Y8a2TFYzj-5Oy3hTVb9cfw";
 
-        var map = L.mapbox.map('map', 'mapbox.light', {
+        var map = L.mapbox.map('map', null, {
             zoomControl: false
         })
-            .setView([38.90512740512037, -77.03433036804199], 15);
+        .setView([38.90512740512037, -77.03433036804199], 15)
+        .addLayer(L.mapbox.styleLayer('mapbox://styles/mapbox/light-v10'));
 
         new L.Control.Zoom({
             position: 'bottomleft'
